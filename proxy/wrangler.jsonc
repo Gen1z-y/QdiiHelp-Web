@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qdiihelp-public-quotes",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-28",
+  "workers_dev": true,
+  "vars": {"ALLOWED_ORIGINS": "https://gen1z-y.github.io"},
+  "ratelimits": [{"name":"RATE_LIMITER","namespace_id":"107281","simple":{"limit":600,"period":60}}],
+  "observability": {"enabled": false}
+}

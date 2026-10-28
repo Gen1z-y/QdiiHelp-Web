@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {canReuseView,blocksStockModel,publicView} from '../site/lib/load-policy.mjs';
+
+
+
+test('zero direct-stock exposure never disables Nasdaq or S&P index proxies',()=>{
+ for(const indexId of ['NDX','SPX'])assert.equal(blocksStockModel({indexId,nonStock:true,date:'2026-10-02'}),false);
+ assert.equal(blocksStockModel({nonStock:true,date:'2026-10-02'}),true);
+ assert.equal(blocksStockModel({holdingsDate:'2023-09-30',date:'2026-10-02'}),true);
+});
+test('fresh views may be reused, forced or expired requests and missing index predictions may not',()=>{
+ const now=Date.parse('2026-10-03T05:00:00Z');const v={checkedAt:new Date(now-1000).toISOString(),record:{forecast:{model:{dailyReturn:.01}}},latestHoldings:{asOf:'2026-06-30',rows:[{weight:1}]}};
+ assert.equal(canReuseView(v,null,{now}),true);assert.equal(canReuseView(v,null,{now,force:true}),false);
+ assert.equal(canReuseView(v,null,{now:now+300000}),false);
+ assert.equal(canReuseView(v,{asOf:'2026-09-30',rows:[{weight:1}]},{now}),false);
+ assert.equal(canReuseView({...v,indexQuote:{id:'NDX'},record:{}},null,{now}),false);
+});
+test('public responses omit large audit snapshots without deleting persisted evidence or holdings',()=>{
+ const v={record:{evidence:[{rows:[1,2,3]}],originalForecast:{rows:[1]},forecast:{rows:[{weight:3}]}},analysis:{rows:[1]},latestHoldings:{rows:[{weight:0},{weight:3}]}};
+ const lean=publicView(v);assert.equal(lean.evidenceCount,1);assert.equal(lean.record.evidence,undefined);assert.equal(lean.record.originalForecast,undefined);assert.equal(lean.analysis,null);assert.equal(lean.latestHoldings.rows.length,1);assert.equal(v.record.evidence.length,1);assert.equal(v.latestHoldings.rows.length,2);
+});
+test('published targets reuse briefly and recheck after six hours to discover revisions',()=>{
+ const v={date:'2026-10-13',checkedAt:'2026-10-13T00:00:00Z',record:{actual:{date:'2026-10-13',value:1.02,dailyReturn:.02}},latestHoldings:{fetchedAt:'2026-01-01'}};
+ const now=Date.parse('2026-10-13T01:00:00Z');
+ assert.equal(canReuseView(v,null,{now}),true);
+ assert.equal(canReuseView(v,null,{now:now+6*3600000}),false);
+ for(const change of [{error:'offline'},{stale:true},{date:'2026-10-14'},{record:{actual:{date:v.date,value:0}}}])assert.equal(canReuseView({...v,...change},null,{now}),false);
+ assert.equal(canReuseView(v,null,{now,force:true}),false);
+});
+
