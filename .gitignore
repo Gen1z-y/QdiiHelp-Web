@@ -3,3 +3,11 @@ node_modules/
 .wrangler/
 .env*
 *.log
+
+# Local delivery and verification artifacts
+delivery-manifest.json
+test-result.txt
+verification-*.json
+verification-*.png
+verification-*.jpg
+reports/

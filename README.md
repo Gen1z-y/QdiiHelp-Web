@@ -2,6 +2,14 @@
 
 独立于 Windows/PG 本地版的浏览器版本。GitHub Pages 提供静态页面；计算在浏览器 Web Worker 中运行；个人数据保存在当前浏览器的 IndexedDB。公开行情由单独部署的 Cloudflare Worker 转发。本目录可以直接作为独立 GitHub 仓库的根目录。
 
+## 2026-10-28 发布状态
+
+- 仓库：https://github.com/Gen1z-y/QdiiHelp-Web
+- 公网页面：https://gen1z-y.github.io/QdiiHelp-Web/
+- GitHub Pages 已启用 GitHub Actions，首次构建成功；首次部署因尚未启用 Pages 返回404，启用后仅重试部署已成功。公网浏览器初始化正常、空列表和本地存储提示正常，未捕获页面错误。
+- **Cloudflare 行情服务尚未部署，当前不能刷新真实行情。** 维护者需先注册并登录 Cloudflare，部署 proxy/ 后配置 QDII_PROXY_URL。
+- 每个新浏览器从空数据开始，未迁移本地版 PG 数据。
+
 ## 当前能力
 
 - 保留原有界面与股票、指数、债基估算规则，支持基金添加/移除/分组/排序、刷新、披露持仓同步、完整历史曲线、对比及图片导出。
@@ -52,7 +60,7 @@ node test/browser-smoke.mjs
 
 ## 验证与限制
 
-详见 `VERIFICATION.md`。当前交付是完成本地验证的源码与静态构建，不能据此宣称 GitHub Pages 和 Cloudflare 已上线。真实数据源在 Cloudflare 出口的反爬、地区限制及所有市场的实际行情仍需上线后验证；单个数据源失败会显示错误或保留旧数据，不能当作零收益。
+详见 `VERIFICATION.md`。GitHub Pages 已上线并验证页面初始化；Cloudflare 行情代理仍未上线。真实数据源在 Cloudflare 出口的反爬、地区限制及所有市场的实际行情仍需上线后验证；单个数据源失败会显示错误或保留旧数据，不能当作零收益。
 
 尚未提供 PG 全量迁移入口。不能把原版 `state.json`、归档索引或数据库备份直接当作浏览器 JSON 导入；两版格式不同。此版本从空列表开始，不读取原版数据库。后续需要迁移时，应另做显式导出和格式转换。
 

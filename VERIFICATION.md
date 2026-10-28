@@ -15,9 +15,9 @@
 
 上述浏览器流程合计11组检查，详见 verification-browser.json。verification-desktop.png 与 verification-mobile.png 全部使用人工模拟行情，不是真实基金表现。每次测试均创建独立临时浏览器上下文，测试结束关闭。
 
-## 尚未验证/上线
+## 公网部署进展与剩余边界
 
-- GitHub 新仓库创建、Pages 工作流远程执行及公网地址。
+- GitHub 仓库已创建、源码已推送、远程构建通过。Pages 在启用后重试部署成功，公网 https://gen1z-y.github.io/QdiiHelp-Web/ 返回200，实际浏览器初始化和空列表展示正常，页面错误日志为空。此项已完成。
 - Cloudflare 账号部署、真实 RATE_LIMITER 绑定、边缘缓存和实际数据源联通性。Worker 通过本地 Fetch API 单元测试，不等于 Cloudflare 运行环境已验证。
 - 各国家市场的全部实际数据源、上游地区/反爬策略，以及真实网络下的并发、流量与长期存储容量。
 - 注册登录、跨设备同步、PG 数据迁移均未实现。
