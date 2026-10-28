@@ -7,7 +7,8 @@
 - 仓库：https://github.com/Gen1z-y/QdiiHelp-Web
 - 公网页面：https://gen1z-y.github.io/QdiiHelp-Web/
 - GitHub Pages 已启用 GitHub Actions，首次构建成功；首次部署因尚未启用 Pages 返回404，启用后仅重试部署已成功。公网浏览器初始化正常、空列表和本地存储提示正常，未捕获页面错误。
-- **Cloudflare 行情服务尚未部署，当前不能刷新真实行情。** 维护者需先注册并登录 Cloudflare，部署 proxy/ 后配置 QDII_PROXY_URL。
+- Cloudflare 行情服务已部署：`https://qdiihelp-public-quotes.943982784qq.workers.dev`，已设置 Pages 来源限制和 RATE_LIMITER 绑定。默认地址写入 site/deploy-config.json，用户无需自行填写。
+- 已验证真实基金资料、净值、腾讯行情、港股历史、股票基金持仓及公告页面；部分披露请求出现超时，数据源可用性不保证。
 - 每个新浏览器从空数据开始，未迁移本地版 PG 数据。
 
 ## 当前能力
@@ -60,7 +61,7 @@ node test/browser-smoke.mjs
 
 ## 验证与限制
 
-详见 `VERIFICATION.md`。GitHub Pages 已上线并验证页面初始化；Cloudflare 行情代理仍未上线。真实数据源在 Cloudflare 出口的反爬、地区限制及所有市场的实际行情仍需上线后验证；单个数据源失败会显示错误或保留旧数据，不能当作零收益。
+详见 `VERIFICATION.md`。GitHub Pages 与 Cloudflare 行情代理均已上线；已检查部分真实数据源。所有市场覆盖、长期稳定性及上游地区/反爬限制仍需持续验证；单个数据源失败会显示错误或保留旧数据，不能当作零收益。
 
 尚未提供 PG 全量迁移入口。不能把原版 `state.json`、归档索引或数据库备份直接当作浏览器 JSON 导入；两版格式不同。此版本从空列表开始，不读取原版数据库。后续需要迁移时，应另做显式导出和格式转换。
 
