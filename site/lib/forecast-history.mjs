@@ -7,4 +7,3 @@ export function forecastHistory(records,code){
   actualSeenAt:r.firstActualSeenAt??null
  })).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,90);
 }
-

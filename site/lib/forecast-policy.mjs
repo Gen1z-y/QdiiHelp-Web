@@ -1,15 +1,15 @@
-import {previousWeekday,validDate} from './model.mjs';
-import {usableFx} from './provider.mjs';
-import {marketId,marketStatus,quoteDateMatches,session,expectedCloseDate,shiftDate} from './calendar.mjs';
-import {holdingDateIssue} from './estimation-rules.mjs';
-import {MIN_BOND_SAMPLES,MIN_BOND_R2} from './bond-reference.mjs';
+import {previousWeekday,validDate} from './model.mjs?v=bond-20261029';
+import {usableFx} from './provider.mjs?v=bond-20261029';
+import {marketId,marketStatus,quoteDateMatches,session,expectedCloseDate,shiftDate} from './calendar.mjs?v=bond-20261029';
+import {holdingDateIssue} from './estimation-rules.mjs?v=bond-20261029';
+import {MIN_BOND_SAMPLES,MIN_BOND_R2} from './bond-reference.mjs?v=bond-20261029';
 
 // forecastIssue is deterministic in (forecast, name, rule code), so validated
 // entries are stamped with a fingerprint of every rule-relevant module and
 // later startups only re-check unstamped ones. Editing any rule module changes
 // the fingerprint and forces one full sweep; runtime-written forecasts were
 // already validated by this same code version before being saved.
-export const FORECAST_POLICY_VERSION='3af502e75b3cb182';
+export const FORECAST_POLICY_VERSION='f5b9e3ca06f0515c';
 
 // Conservative close-only policy. Unverified holiday carry is not a daily forecast.
 export function forecastIssue(forecast,name='') {

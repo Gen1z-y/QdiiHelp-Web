@@ -1,6 +1,6 @@
-import {createHash} from '../browser-crypto.mjs';
-import {estimateMarketIndex} from './indices.mjs';
-import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs';
+import {createHash} from '../browser-crypto.mjs?v=bond-20261029';
+import {estimateMarketIndex} from './indices.mjs?v=bond-20261029';
+import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs?v=bond-20261029';
 
 export function modelQuality(forecast,allocation,now=new Date()){
  const rows=forecast?.rows??[],coverage=forecast?.model?.coverage??0,age=forecast?.holdingsDate?(Date.parse(forecast.date)-Date.parse(forecast.holdingsDate))/86400000:null;

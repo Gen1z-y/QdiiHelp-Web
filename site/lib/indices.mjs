@@ -1,5 +1,5 @@
-import {marketStatus,quoteDateMatches} from './calendar.mjs';
-import {previousWeekday} from './model.mjs';
+import {marketStatus,quoteDateMatches} from './calendar.mjs?v=bond-20261029';
+import {previousWeekday} from './model.mjs?v=bond-20261029';
 const definitions={IXIC:{symbol:'usIXIC',ticker:'.IXIC',name:'纳斯达克综合'},NDX:{symbol:'usNDX',ticker:'.NDX',name:'纳斯达克100'},SPX:{symbol:'usINX',ticker:'.INX',name:'标普500'}};
 export function estimateIndex(date,base,indexQuote,fx){
  const dailyReturn=(1+indexQuote.dailyReturn)*(1+fx.return)-1;

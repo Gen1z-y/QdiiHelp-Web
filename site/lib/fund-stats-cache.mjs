@@ -1,4 +1,4 @@
-import {forecastStats} from './forecast-stats.mjs';
+import {forecastStats} from './forecast-stats.mjs?v=bond-20261029';
 
 // Index observations once and keep the index in step with normal record writes.
 export class FundStatsCache {

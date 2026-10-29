@@ -1,7 +1,7 @@
-import {holdings,bondHoldings,fundProfile,mapLimit} from './provider.mjs';
-import {holdingsChanged,selectHoldingSnapshot} from './holdings-version.mjs';
-import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs';
-import {indexForFund} from './indices.mjs';
+import {holdings,bondHoldings,fundProfile,mapLimit} from './provider.mjs?v=bond-20261029';
+import {holdingsChanged,selectHoldingSnapshot} from './holdings-version.mjs?v=bond-20261029';
+import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs?v=bond-20261029';
+import {indexForFund} from './indices.mjs?v=bond-20261029';
 
 const indexProfile=profile=>!!profile&&!profile.bond&&(!!profile.index||!!indexForFund(profile.name??'')||/联接|指数/.test(profile.name??''));
 export function isIndexFund(data,code){

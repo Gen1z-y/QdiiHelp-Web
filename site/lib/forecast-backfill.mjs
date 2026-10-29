@@ -1,8 +1,8 @@
-import {estimateMarket} from './model.mjs';
-import {holdingDateIssue} from './estimation-rules.mjs';
-import {forecastIssue} from './forecast-policy.mjs';
-import {marketStatus} from './calendar.mjs';
-import {mapLimit} from './provider.mjs';
+import {estimateMarket} from './model.mjs?v=bond-20261029';
+import {holdingDateIssue} from './estimation-rules.mjs?v=bond-20261029';
+import {forecastIssue} from './forecast-policy.mjs?v=bond-20261029';
+import {marketStatus} from './calendar.mjs?v=bond-20261029';
+import {mapLimit} from './provider.mjs?v=bond-20261029';
 
 // Retrospective estimates are separate from forecasts/evidence used for accuracy.
 export async function reconstructForecast({date,name,holdings,nav,rowWithPrices,now=new Date()}){

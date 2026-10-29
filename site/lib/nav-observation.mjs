@@ -1,7 +1,7 @@
-import {expectedCloseDate,shiftDate,session,marketStatus} from './calendar.mjs';
-import {chinaDate,validDate,previousWeekday,reconcile} from './model.mjs';
-import {fundCalendarDay,previousFundDate} from './fund-nav-calendar.mjs';
-import {exposureMarkets,periodDays,captureStage,PERIOD_VERSION} from './nav-period.mjs';
+import {expectedCloseDate,shiftDate,session,marketStatus} from './calendar.mjs?v=bond-20261029';
+import {chinaDate,validDate,previousWeekday,reconcile} from './model.mjs?v=bond-20261029';
+import {fundCalendarDay,previousFundDate} from './fund-nav-calendar.mjs?v=bond-20261029';
+import {exposureMarkets,periodDays,captureStage,PERIOD_VERSION} from './nav-period.mjs?v=bond-20261029';
 export function previousNavDate(date){return expectedCloseDate(shiftDate(date,-1),'CN');}
 export function observationPlan(now=new Date(),{markets=['US','HK','JP','CN'],currentDay=false}={}){
  // A string is a Beijing daytime snapshot, useful for date-only callers.

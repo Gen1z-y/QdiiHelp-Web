@@ -1,10 +1,10 @@
-import {isDeepStrictEqual} from '../browser-util.mjs';
-import {forecastStats} from './forecast-stats.mjs';
-import {evidenceStats} from './model-evidence.mjs';
-import {forecastHistory} from './forecast-history.mjs';
-import {navEstimate} from './nav-observation.mjs';
-import {shiftDate} from './calendar.mjs';
-import {chinaDate} from './model.mjs';
+import {isDeepStrictEqual} from '../browser-util.mjs?v=bond-20261029';
+import {forecastStats} from './forecast-stats.mjs?v=bond-20261029';
+import {evidenceStats} from './model-evidence.mjs?v=bond-20261029';
+import {forecastHistory} from './forecast-history.mjs?v=bond-20261029';
+import {navEstimate} from './nav-observation.mjs?v=bond-20261029';
+import {shiftDate} from './calendar.mjs?v=bond-20261029';
+import {chinaDate} from './model.mjs?v=bond-20261029';
 
 // Results and original timestamps remain permanent; only detailed inputs expire.
 export const RETENTION_DAYS=180;

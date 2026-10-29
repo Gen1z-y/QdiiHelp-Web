@@ -1,9 +1,9 @@
-import {preferences} from './browser-client.mjs';
-import {requestJson,readLines,mountOperations} from './request.js';
-import {reliability,reliabilityPanel} from './forecast-details.js';
-import {pageRows,pagination,holdingsResultRow,holdingsReadState,holdingsComparison,holdingsAnnouncementLinks,holdingsDateSummary,holdingsUpdatedFunds} from './holdings-ui.js';
-import {forecastChart,detailHistoryChart} from './forecast-chart.js';
-import {forecastInputs,fundFxImpact,accuracyPanel,contributionPanel,indexContributionRows,quoteStatusBadge,dateStatus,navPeriodLabel,estimateLabel,intervalNote,observationPanel} from './forecast-details.js';
+import {preferences} from './browser-client.mjs?v=bond-20261029';
+import {requestJson,readLines,mountOperations} from './request.js?v=bond-20261029';
+import {reliability,reliabilityPanel} from './forecast-details.js?v=bond-20261029';
+import {pageRows,pagination,holdingsResultRow,holdingsReadState,holdingsComparison,holdingsAnnouncementLinks,holdingsDateSummary,holdingsUpdatedFunds} from './holdings-ui.js?v=bond-20261029';
+import {forecastChart,detailHistoryChart} from './forecast-chart.js?v=bond-20261029';
+import {forecastInputs,fundFxImpact,accuracyPanel,contributionPanel,indexContributionRows,quoteStatusBadge,dateStatus,navPeriodLabel,estimateLabel,intervalNote,observationPanel} from './forecast-details.js?v=bond-20261029';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=4)=>Number.isFinite(v)?v.toFixed(d):'—';

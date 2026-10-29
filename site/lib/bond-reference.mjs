@@ -1,5 +1,5 @@
-import {bondBars} from './provider.mjs';
-import {session} from './calendar.mjs';
+import {bondBars} from './provider.mjs?v=bond-20261029';
+import {session} from './calendar.mjs?v=bond-20261029';
 
 // Recheck cached references too: an old number must not become today's quote.
 export function usableBondReference(target,ref,now=new Date()){

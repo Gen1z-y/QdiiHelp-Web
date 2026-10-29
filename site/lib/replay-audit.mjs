@@ -1,5 +1,5 @@
-import {estimateMarket} from './model.mjs';
-import {estimateMarketIndex} from './indices.mjs';
+import {estimateMarket} from './model.mjs?v=bond-20261029';
+import {estimateMarketIndex} from './indices.mjs?v=bond-20261029';
 
 // Recompute sealed forecasts from their stored inputs: a mismatch means the
 // stored model no longer reproduces from its own rows/quotes (corruption or a

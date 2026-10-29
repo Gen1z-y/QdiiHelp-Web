@@ -1,9 +1,9 @@
-import {movement,chinaDate,previousWeekday} from './model.mjs';
-import {navPercent,parseTencentNav,supplementNavReturn,annotateNavPeriods} from './nav-publication.mjs';
-import {supplementFundNavReturn} from './fund-nav-calendar.mjs';
-import {marketId,marketStatus,canUseBar,quoteDateMatches,expectedCloseDate,shiftDate} from './calendar.mjs';
-import {readQuoteCache,writeQuoteCache,clearQuoteCache,hedged} from './quote-cache.mjs';
-import {QuoteCircuit} from './quote-circuit.mjs';
+import {movement,chinaDate,previousWeekday} from './model.mjs?v=bond-20261029';
+import {navPercent,parseTencentNav,supplementNavReturn,annotateNavPeriods} from './nav-publication.mjs?v=bond-20261029';
+import {supplementFundNavReturn} from './fund-nav-calendar.mjs?v=bond-20261029';
+import {marketId,marketStatus,canUseBar,quoteDateMatches,expectedCloseDate,shiftDate} from './calendar.mjs?v=bond-20261029';
+import {readQuoteCache,writeQuoteCache,clearQuoteCache,hedged} from './quote-cache.mjs?v=bond-20261029';
+import {QuoteCircuit} from './quote-circuit.mjs?v=bond-20261029';
 const headers={Referer:'https://fundf10.eastmoney.com/','User-Agent':'Mozilla/5.0 QdiiHelp/1.0'};
 const cache=new Map();
 const pending=new Map();

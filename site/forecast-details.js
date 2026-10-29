@@ -1,4 +1,4 @@
-import {pageRows,pagination} from './holdings-ui.js';
+import {pageRows,pagination} from './holdings-ui.js?v=bond-20261029';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=v=>Number.isFinite(v)?`${v>0?'+':''}${(v*100).toFixed(2)}%`:'—';
 const num=v=>Number.isFinite(v)?v.toFixed(2):'—';

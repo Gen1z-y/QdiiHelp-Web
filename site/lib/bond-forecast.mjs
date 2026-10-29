@@ -1,6 +1,6 @@
-import {bondReference,usableBondReference} from './bond-reference.mjs';
-import {marketStatus,session} from './calendar.mjs';
-import {previousNavDate} from './nav-observation.mjs';
+import {bondReference,usableBondReference} from './bond-reference.mjs?v=bond-20261029';
+import {marketStatus,session} from './calendar.mjs?v=bond-20261029';
+import {previousNavDate} from './nav-observation.mjs?v=bond-20261029';
 
 // Close-only bond estimate. Intraday index values stay a display reference;
 // the formal forecast exists only after the CN session is confirmed complete

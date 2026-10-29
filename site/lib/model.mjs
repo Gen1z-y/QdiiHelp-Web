@@ -1,4 +1,4 @@
-import {mergePublishedNav} from './nav-publication.mjs';
+import {mergePublishedNav} from './nav-publication.mjs?v=bond-20261029';
 export function chinaDate(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
 }

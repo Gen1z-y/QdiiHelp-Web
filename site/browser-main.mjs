@@ -1,4 +1,4 @@
-import {initialize,browserFetch} from './browser-client.mjs';
+import {initialize,browserFetch} from './browser-client.mjs?v=bond-20261029';
 const banner=document.querySelector('#browserStatus');
 const panel=document.createElement('dialog');panel.id='browserData';
 panel.innerHTML=`<div class="dialoghead"><h2>本机数据说明</h2><button type="button" id="closeBrowserData">关闭 ×</button></div>
@@ -17,7 +17,7 @@ try{
  await initialize(config.proxyUrl);
  const button=document.createElement('button');button.textContent='数据说明';button.type='button';button.onclick=()=>panel.showModal();document.querySelector('#headerActions').append(button);
  banner.textContent='债基网页版 · 数据保存在当前浏览器，关闭网页后停止更新。';
- await import('./app.js');await import('./history.js');await import('./inputs.js');
+ await import('./app.js?v=bond-20261029');await import('./history.js?v=bond-20261029');await import('./inputs.js?v=bond-20261029');
  const poll=async()=>{try{const state=await(await browserFetch('/api/runtime')).json();busy=state.busy;banner.textContent='债基网页版 · '+(busy?'正在处理数据，请保持页面打开。':state.saveError?'保存失败：'+state.saveError:'数据保存在当前浏览器，关闭网页后停止更新。')+(state.inactiveFundCount?' 已停用 '+state.inactiveFundCount+' 只非债基或类型待确认的旧基金，原记录仍在本机。':'');}catch(e){banner.textContent=e.message;}};
  setInterval(()=>void poll(),4000);void poll();
 }catch(error){banner.textContent='无法打开网页版：'+error.message;banner.setAttribute('role','alert');document.querySelectorAll('.toolbar button,.toolbar input,.toolbar select').forEach(el=>el.disabled=true);}
