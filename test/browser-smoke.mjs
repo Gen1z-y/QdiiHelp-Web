@@ -1,71 +1,29 @@
-// Run with PLAYWRIGHT_MODULE set to an installed Playwright module directory.
-import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
-import {createRequire} from 'node:module';
-const require=createRequire(import.meta.url);
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');
-const base=process.env.QDII_WEB_TEST_URL??'http://127.0.0.1:8790/qdiihelp-web/';
-if(new URL(base).hostname!=='127.0.0.1'||new URL(base).port==='8787')throw Error('Only isolated loopback test URLs are allowed');
-const results=[],errors=[],upstreams=[];
-const browser=await chromium.launch({channel:'msedge',headless:true});
-const api=(page,url,options={})=>page.evaluate(async({url,options})=>{
- const {browserFetch}=await import(new URL('./browser-client.mjs',location.href));
- const r=await browserFetch(url,options);return {status:r.status,data:await r.json()};
-},{url,options});
-const record=(name)=>{results.push(name);console.log('PASS '+name);};
-const fixtureRows=Array.from({length:160},(_,i)=>({FSRQ:new Date(Date.UTC(2026,9,27-i)).toISOString().slice(0,10),DWJZ:String(1.1-i*.0001),LJJZ:String(1.1-i*.0001),JZZZL:'0.1'}));
-async function contextWithMock(){
- const context=await browser.newContext({viewport:{width:1360,height:1000}});
- await context.addInitScript(()=>{localStorage.setItem('qdiihelp-web:v1:/qdiihelp-web/:proxy-url','https://quotes.test');});
- await context.route('https://quotes.test/**',async route=>{
-  const source=new URL(new URL(route.request().url()).searchParams.get('url'));upstreams.push(source.href);let body='',type='application/json';
-  if(source.pathname.includes('pingzhongdata')){body='var fS_name = "网页版验证全球股票基金A";';type='text/javascript';}
-  else if(source.pathname.endsWith('/lsjz')){const size=Number(source.searchParams.get('pageSize')),page=Number(source.searchParams.get('pageIndex'));body=JSON.stringify({TotalCount:fixtureRows.length,Data:{LSJZList:fixtureRows.slice((page-1)*size,page*size)}});}
-  else if(source.pathname.includes('FundArchivesDatas')){
-   const html="<a title='网页版验证全球股票基金A'>基金</a>截止至：<font>2026-09-30</font><tbody><tr><td>1</td><td><a href='//quote.eastmoney.com/unify/r/116.00700'>00700</a></td><td>测试香港股票</td><td>40%</td></tr></tbody>";
-   body='var apidata={content:'+JSON.stringify(html)+'};';type='text/plain';
-  }else if(source.hostname==='api.frankfurter.dev'){
-   body=JSON.stringify({rates:Object.fromEntries(fixtureRows.map(r=>[r.FSRQ,{USD:.14,HKD:1.1,JPY:21,KRW:190}]))});
-  }else if(source.pathname.includes('/qt/stock/kline/get')){
-   const secid=source.searchParams.get('secid');body=JSON.stringify({data:{code:secid.split('.')[1],klines:fixtureRows.map((r,i)=>r.FSRQ+','+(100+i*.1)+','+(100+i*.1)+',101,99,10000').reverse()}});
-  }else if(source.hostname==='qt.gtimg.cn'){body='';type='text/plain';}
-  else {body=JSON.stringify({data:{},Result:[]});}
-  await route.fulfill({status:200,body,headers:{'Content-Type':type,'Access-Control-Allow-Origin':'*'}});
- });
- return context;
-}
-async function ready(page){page.on('pageerror',e=>{errors.push(e.message);console.log('BROWSER ERROR',e.message);});page.on('console',m=>{if(m.type()==='error')console.log('CONSOLE',m.text());});await page.goto(base);await page.waitForFunction(()=>document.querySelector('#headerActions')?.textContent.includes('浏览器数据'));}
+// Browser integration checks; open /_verify/ using the isolated preview-smoke server.
+import {BrowserStore,transaction} from '../site/browser-store.mjs';
+const output=document.querySelector('#result'),results=[];
+const assert=(v,message)=>{if(!v)throw Error(message);};
+const pass=message=>{results.push('PASS '+message);output.textContent=results.join('\n');};
 try{
- const a=await contextWithMock(),page=await a.newPage();await ready(page);
- assert.equal((await api(page,'/api/funds?cached=1')).data.items.length,0);record('new browser starts empty');
- const added=await api(page,'/api/funds',{method:'POST',body:JSON.stringify({code:'007740',group:'watch'})});assert.equal(added.status,200);
- const refreshed=await api(page,'/api/funds?date=auto');assert.equal(refreshed.status,200);assert.equal(refreshed.data.items[0].code,'007740');
- await page.waitForFunction(async()=>{const {browserFetch}=await import(new URL('./browser-client.mjs',location.href));return !(await(await browserFetch('/api/runtime')).json()).busy;});record('add fund and refresh via browser engine');
- const sync=await api(page,'/api/holdings/sync',{method:'POST',body:'{}'});assert.equal(sync.status,200);assert.equal(sync.data.items[0].status,'updated');record('holdings sync and recalculation run locally');
- const history=await api(page,'/api/history?codes=007740&format=detail&days=0');assert.equal(history.status,200);assert.equal(history.data.rows.length,160);assert.equal(history.data.historyComplete,true);record('full history uses all pages');
- await page.reload();await page.waitForFunction(()=>document.querySelector('#headerActions')?.textContent.includes('浏览器数据'));
- const persisted=await api(page,'/api/funds?cached=1');assert.equal(persisted.data.items[0].code,'007740');assert.equal((await api(page,'/api/history?codes=007740&format=detail')).data.rows.length,160);record('reload restores funds and full history');
- const second=await a.newPage();await second.goto(base);await second.waitForFunction(()=>document.querySelector('#browserStatus').textContent.includes('另一个标签页'));assert.equal(await second.locator('#addForm button').isDisabled(),true);await second.close();record('same-browser second tab cannot overwrite data');
- const b=await contextWithMock(),other=await b.newPage();await ready(other);assert.equal((await api(other,'/api/funds?cached=1')).data.items.length,0);record('independent browser context has isolated data');
- await page.waitForFunction(async()=>{const {browserFetch}=await import(new URL('./browser-client.mjs',location.href));return !(await(await browserFetch('/api/runtime')).json()).busy;});
- const backup=(await api(page,'/api/browser/export')).data;assert.equal(backup.state.watchlist[0],'007740');assert.equal(backup.histories[0].rows.length,160);
- const malformed=structuredClone(backup);malformed.state.watchlist=['bad'];assert.equal((await api(other,'/api/browser/import',{method:'POST',body:JSON.stringify(malformed)})).status,400);
- assert.equal((await api(other,'/api/browser/import',{method:'POST',body:JSON.stringify(backup)})).status,200);await other.reload();await other.waitForFunction(()=>document.querySelector('#headerActions')?.textContent.includes('浏览器数据'));
- assert.equal((await api(other,'/api/funds?cached=1')).data.items[0].code,'007740');record('backup export, validation, import and recovery');
- const storage=await page.evaluate(async()=>{
-  const {BrowserStore,transaction}=await import(new URL('./browser-store.mjs',location.href));
-  const store=await BrowserStore.open('qdiihelp-smoke-transaction');store.data.watchlist=['000001'];store.data.fundGroups={'000001':'held'};await store.save();
-  const real=store.db.transaction.bind(store.db);store.db.transaction=(...args)=>{const tx=real(...args);if(args[1]==='readwrite')queueMicrotask(()=>tx.abort());return tx;};
-  store.data.watchlist=['000002'];let rejected=false;try{await store.save();}catch{rejected=true;}
-  store.db.transaction=real;let flushRejected=false;try{await store.flush();}catch{flushRejected=true;}
-  await store.save();await store.close();const loaded=await BrowserStore.open('qdiihelp-smoke-transaction');const codes=loaded.data.watchlist;await loaded.close();return {rejected,flushRejected,codes};
- });assert.deepEqual(storage,{rejected:true,flushRejected:true,codes:['000002']});record('aborted IndexedDB commits surface errors and can retry');
- await page.locator('[data-fund-group="watch"]').click();await page.locator('[data-fund-code="007740"]').waitFor();
- await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));record('mobile layout fits viewport');
- await page.screenshot({path:new URL('../verification-mobile.png',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'),fullPage:true});
- await page.setViewportSize({width:1360,height:1000});await page.screenshot({path:new URL('../verification-desktop.png',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'),fullPage:true});
- assert.deepEqual(errors,[]);assert.ok(upstreams.length>0);record('no uncaught browser errors; mock public-data requests only');
- await fs.writeFile(new URL('../verification-browser.json',import.meta.url),JSON.stringify({results,errors,upstreamRequests:upstreams.length,mocked:true},null,2));
- await a.close();await b.close();
-}finally{await browser.close();}
-
+ const namespace='qdiihelp-bond-verification-'+crypto.randomUUID();
+ const seed=await BrowserStore.open(namespace);seed.data.watchlist=['007740','012414','000003'];seed.data.profiles={'007740':{profile:{name:'模拟信益债券A',bond:true}},'012414':{profile:{name:'模拟白酒指数股票C',bond:false}}};seed.data.records={'012414:2026-10-27':{actual:{value:1}}};await seed.save();await seed.close();
+ globalThis.QDII_NAMESPACE=namespace;
+ const nativeFetch=globalThis.fetch.bind(globalThis);
+ globalThis.fetch=(url,options={})=>new URL(String(url),location.href).protocol==='https:'?nativeFetch('/quote?url='+encodeURIComponent(url),{signal:options.signal}):nativeFetch(url,options);
+ const engine=await import('../site/engine.mjs');
+ async function api(url,options={}){let status=0,body='';await engine.handleRequest({url,method:options.method??'GET',async *[Symbol.asyncIterator](){if(options.body)yield JSON.stringify(options.body);}},{writeHead(s){status=s;},write(s){body+=s;},end(s){if(s)body+=s;}});return {status,data:JSON.parse(body)};}
+ assert((await api('/api/runtime')).data.inactiveFundCount===2,'old unsupported codes not deactivated');pass('旧非债基与未知类型停用');
+ let result=await api('/api/funds',{method:'POST',body:{code:'012414',group:'watch'}});assert(result.status===400,'stock fund accepted');assert((await api('/api/fund-profile?code=012414')).status===400,'stock preview accepted');pass('添加与名称查询拒绝非债基');
+ for(const code of ['007740','005677'])assert((await api('/api/funds',{method:'POST',body:{code,group:'watch'}})).status===200,'bond add failed');pass('普通债基和债券指数基金可添加');
+ result=await api('/api/funds?date=auto');assert(result.status===200&&result.data.items.length===2&&result.data.items.every(x=>x.bond),'bond refresh failed');pass('债基刷新保留两只债基');
+ result=await api('/api/holdings/sync',{method:'POST',body:{}});assert(result.status===200&&result.data.items.length===2&&result.data.items.every(x=>x.count===5&&x.status==='updated'),'bond holdings failed');pass('两只债基披露持仓同步');
+ result=await api('/api/history?codes=007740&format=detail&days=0');assert(result.status===200&&result.data.rows.length===160&&result.data.historyComplete,'full history incomplete');pass('160条完整净值历史');
+ result=await api('/api/history?codes=007740,005677&days=90');assert(result.status===200,'comparison failed');pass('基金对比数据正常');
+ assert((await api('/api/history?codes=012414')).status===400,'inactive history fetched');
+ for(const [url,method] of [['/api/global-markets','GET'],['/api/export-data','GET'],['/api/export-indices','POST'],['/api/browser/export','GET'],['/api/browser/import','POST']])assert((await api(url,{method,body:method==='POST'?{}:undefined})).status===404,'obsolete API remains: '+url);pass('非债历史受限；指数、图片、备份接口已删除');
+ const persisted=await BrowserStore.open(namespace);assert(persisted.data.records['012414:2026-10-27'].actual.value===1,'legacy data deleted');assert(persisted.data.watchlist.join(',')==='007740,005677','stored active list invalid');assert((await persisted.readHistory('007740')).rows.length===160,'history not persisted');pass('重读保留债基列表、完整历史及旧非债原始记录');
+ const independent=await BrowserStore.open(namespace+'-other');assert(independent.data.watchlist.length===0,'separate namespace leaked');await independent.close();pass('独立存储空间初始为空');
+ const txStore=await BrowserStore.open(namespace+'-transaction'),real=txStore.db.transaction.bind(txStore.db);txStore.db.transaction=(...args)=>{const tx=real(...args);if(args[1]==='readwrite')queueMicrotask(()=>tx.abort());return tx;};let rejected=false;try{await txStore.save();}catch{rejected=true;}assert(rejected,'aborted transaction accepted');txStore.db.transaction=real;await txStore.save();await txStore.close();pass('存储事务失败可见且可重试');
+ const app=await BrowserStore.open('qdiihelp-web:v1:/qdiihelp-web/');app.data=structuredClone(persisted.data);await app.save();for(const code of ['007740','005677'])await app.saveHistory(code,await persisted.readHistory(code));await app.close();await persisted.close();
+ const calls=await(await nativeFetch('/_requests')).json();assert(!calls.some(u=>u.includes('frankfurter')||u.includes('naver')||u.includes('baidu')||u.includes('code=012414')||u.includes('fundCode=012414')),'unnecessary source requested');pass('无全球指数、汇率或非债基净值请求');
+ output.textContent+='\n\n全部 '+results.length+' 组检查通过（模拟行情）；可打开 /qdiihelp-web/ 验证界面。';document.title='PASS 债基网页版验证';
+}catch(e){output.textContent+='\nFAIL '+e.stack;document.title='FAIL 债基网页版验证';}

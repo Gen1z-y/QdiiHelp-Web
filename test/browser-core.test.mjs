@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash as nodeHash} from 'node:crypto';
 import {sha256,createHash} from '../site/browser-crypto.mjs';
-import {validateState,validateBackup} from '../site/browser-store.mjs';
+import {validateState} from '../site/browser-store.mjs';
 import {isDeepStrictEqual} from '../site/browser-util.mjs';
 import {createHandler,validateTarget} from '../proxy/worker.mjs';
 const origin='https://gen1z-y.github.io',target='https://api.fund.eastmoney.com/f10/lsjz?fundCode=007740&pageIndex=1&pageSize=120';
@@ -13,13 +13,12 @@ test('SHA-256 matches Node for empty, unicode, multi-block and long input',()=>{
  for(const value of ['', 'abc','净值观察台😀','a'.repeat(55),'b'.repeat(56),'c'.repeat(64),'d'.repeat(100000)])assert.equal(sha256(value),nodeHash('sha256').update(value).digest('hex'));
  assert.equal(createHash('sha256').update('a').update('bc').digest('hex'),sha256('abc'));
 });
-test('validates browser backups and rejects unsafe/unsupported state',()=>{
+test('validates persisted browser state and rejects unsafe/unsupported state',()=>{
  assert.equal(validateState(state()).watchlist[0],'007740');
  assert.throws(()=>validateState({...state(),watchlist:['007740','007740']}));
  assert.throws(()=>validateState(JSON.parse('{"version":1,"watchlist":[],"fundGroups":{},"records":{"__proto__":{}},"lastView":{}}')));
  assert.throws(()=>validateState({...state(),archives:{x:{$archive:'abc'}}}));
- const backup={format:'qdiihelp-browser',schema:1,state:state(),histories:[]};assert.equal(validateBackup(backup),backup);
- assert.throws(()=>validateBackup({...backup,schema:2}));assert.throws(()=>validateBackup({...backup,histories:[{code:'007740',schema:2,rows:[{date:'bad',value:1}]}]}));
+
 });
 test('summary comparator preserves NaN, undefined and object semantics',()=>{assert.ok(isDeepStrictEqual({a:NaN,b:[undefined]},{b:[undefined],a:NaN}));assert.ok(!isDeepStrictEqual({a:undefined},{}));assert.ok(!isDeepStrictEqual([1],{0:1}));});
 test('proxy validates every supported family and rejects arbitrary hosts and paths',()=>{

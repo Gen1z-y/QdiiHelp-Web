@@ -5,29 +5,16 @@ const cloneState=data=>structuredClone({...data,records:{...data.records}});
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 export function validateState(data){
  if(!object(data)||data.version!==1||!Array.isArray(data.watchlist)||data.watchlist.length>60||new Set(data.watchlist).size!==data.watchlist.length||data.watchlist.some(c=>typeof c!=='string'||!/^\d{6}$/.test(c)))throw Error('基金列表格式不正确');
- if(!object(data.records)||!object(data.lastView)||!object(data.fundGroups))throw Error('备份缺少业务数据');
+ if(!object(data.records)||!object(data.lastView)||!object(data.fundGroups))throw Error('本机数据缺少业务字段');
  for(const [code,group] of Object.entries(data.fundGroups))if(!/^\d{6}$/.test(code)||!['watch','held'].includes(group))throw Error('基金分组格式不正确');
  // Reject archive references and keys unsafe for the business code's plain objects.
  let nodes=0;
  const visit=(value,depth=0)=>{
-  if(depth>80||++nodes>3000000)throw Error('备份数据过大或嵌套过深');
+  if(depth>80||++nodes>3000000)throw Error('本机数据过大或嵌套过深');
   if(!value||typeof value!=='object')return;
-  for(const [key,child] of Object.entries(value)){if(['__proto__','constructor','prototype','$archive','$backupHistory'].includes(key))throw Error('备份包含不支持的数据字段');visit(child,depth+1);}
+  for(const [key,child] of Object.entries(value)){if(['__proto__','constructor','prototype','$archive','$backupHistory'].includes(key))throw Error('本机数据包含不支持的字段');visit(child,depth+1);}
  };visit(data);
  return data;
-}
-export function validateBackup(backup){
- if(backup?.format!=='qdiihelp-browser'||backup.schema!==1||!Array.isArray(backup.histories))throw Error('请选择本网页版导出的 JSON 备份');
- validateState(backup.state);
- // Apply the same unsafe-key and size checks to historical series as to state.
- validateState({version:1,watchlist:[],fundGroups:{},records:{},lastView:{},histories:backup.histories});
- if(backup.histories.length>120)throw Error('备份历史基金过多');
- const seen=new Set();
- for(const h of backup.histories){
-  if(!/^\d{6}$/.test(h?.code)||seen.has(h.code)||h.schema!==2||!Array.isArray(h.rows)||h.rows.length>40000)throw Error('历史净值格式不正确');seen.add(h.code);
-  for(const r of h.rows)if(!/^\d{4}-\d{2}-\d{2}$/.test(r?.date)||!(r.value>0)||!Number.isFinite(r.value)||r.dailyReturn!=null&&!Number.isFinite(r.dailyReturn))throw Error('历史净值记录无效');
- }
- return backup;
 }
 function openDatabase(name){return new Promise((resolve,reject)=>{
  const req=indexedDB.open(name,DB_VERSION);
@@ -44,7 +31,6 @@ export function transaction(db,stores,mode,work){return new Promise((resolve,rej
  try{result=work(tx);}catch(error){tx.abort();reject(error);}
 });}
 const get=(db,store,key)=>transaction(db,[store],'readonly',tx=>{const r=tx.objectStore(store).get(key);return ()=>r.result;});
-const all=(db,store)=>transaction(db,[store],'readonly',tx=>{const r=tx.objectStore(store).getAll();return ()=>r.result;});
 const summary=h=>({...h,rows:h.rows.slice(0,160)});
 export class BrowserStore{
  static async open(namespace){
@@ -75,16 +61,5 @@ export class BrowserStore{
  add(code,group='watch'){if(!/^\d{6}$/.test(code)||!['watch','held'].includes(group))throw Error('基金代码或分组无效');if(!this.data.watchlist.includes(code)){if(this.data.watchlist.length>=60)throw Error('最多保存60只基金');this.data.watchlist.push(code);}this.data.fundGroups[code]=group;void this.save();}
  remove(code){this.data.watchlist=this.data.watchlist.filter(c=>c!==code);delete this.data.fundGroups[code];void this.save();}
  reorder(codes){if(!Array.isArray(codes)||codes.length!==this.data.watchlist.length||new Set(codes).size!==codes.length||codes.some(c=>!this.data.watchlist.includes(c)))throw Error('排序必须包含当前全部基金且不能重复');this.data.watchlist=[...codes];void this.save();}
- async exportBackup(){await this.flush();return {format:'qdiihelp-browser',schema:1,exportedAt:new Date().toISOString(),state:cloneState(this.data),histories:await all(this.db,'history')};}
- async importBackup(input){
-  const backup=validateBackup(structuredClone(input));await this.flush();
-  const previous=await this.exportBackup();
-  await this.enqueue(()=>transaction(this.db,['state','history'],'readwrite',tx=>{
-   const state=tx.objectStore('state'),history=tx.objectStore('history');
-   state.put(previous,'before-import');
-   state.put(backup.state,'current');history.clear();for(const h of backup.histories)history.put(h);
-  }));
-  this.data=backup.state;this.linkViews();this.history=new Map(backup.histories.map(h=>[h.code,summary(h)]));
- }
  async close(){await this.flush();this.db.close();}
 }

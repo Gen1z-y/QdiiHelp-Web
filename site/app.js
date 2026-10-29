@@ -2,7 +2,6 @@ import {preferences} from './browser-client.mjs';
 import {requestJson,readLines,mountOperations} from './request.js';
 import {reliability,reliabilityPanel} from './forecast-details.js';
 import {pageRows,pagination,holdingsResultRow,holdingsReadState,holdingsComparison,holdingsAnnouncementLinks,holdingsDateSummary,holdingsUpdatedFunds} from './holdings-ui.js';
-import {drawHolidayExport} from './holiday-export.js';
 import {forecastChart,detailHistoryChart} from './forecast-chart.js';
 import {forecastInputs,fundFxImpact,accuracyPanel,contributionPanel,indexContributionRows,quoteStatusBadge,dateStatus,navPeriodLabel,estimateLabel,intervalNote,observationPanel} from './forecast-details.js';
 const $=s=>document.querySelector(s);
@@ -26,7 +25,6 @@ async function loadDetailHistory(code,validation=false){
 }
 let contributionPage=1,holdingsPage=1,holdingsReport=null,holdingsQuery='',holdingsUpdatedOnly=false;
 const holdingsRead=holdingsReadState({getItem:key=>preferences.getItem(key),setItem:(key,value)=>preferences.setItem(key,value)});
-document.querySelector('footer p:nth-child(2)').textContent='预估仅供参考，以基金公司公布为准。只计算有数据的持仓，未单独扣除费用；持仓资料超过190天时暂停预估。点击“刷新数据”获取最新结果，不会自动刷新。';
 async function api(url,options={}) {
   return requestJson(url,{...options,headers:{'Content-Type':'application/json',...options.headers}});
 }
@@ -75,6 +73,7 @@ async function fundStream(date,force,seq,holdingsSync=false,group=null){
 function fundMatches(f,query){return !query||f.code.includes(query)||f.name.toLowerCase().includes(query);}
 let sortMode='manual';
 try{sortMode=preferences.getItem('qdii-sort')||'manual';}catch{}
+if(!['manual','estimate','pending'].includes(sortMode))sortMode='manual';
 const sorters={
  estimate:(a,b)=>(b.navEstimate?.return??-Infinity)-(a.navEstimate?.return??-Infinity),
  coverage:(a,b)=>((forecastInputs(b)?.model?.coverage??-1)-(forecastInputs(a)?.model?.coverage??-1)),
@@ -117,7 +116,7 @@ function rememberIncomplete(f,state){
 }
 function initializeReadState(funds){
  let changed=false;
- for(const f of funds)for(const group of ['held','watch','bond']){
+ for(const f of funds)for(const group of ['held','watch']){
   if(!inFundGroup(f,group))continue;
   const saved=cardSeen(f,group),next={...saved};
   if(!saved||saved.dotTestUnread&&!saved.actual)next.actual=latestPublishedDate(f);
@@ -185,7 +184,7 @@ function flushCardUpdates(){
  if(sortMode!=='manual'){render();return;}
  const query=$('#fundSearch').value.trim().toLowerCase();
  for(const code of codes){const f=items.find(f=>f.code===code);if(!f)continue;
-  for(const group of ['held','watch','bond']){
+  for(const group of ['held','watch']){
    const grid=$('#panel-'+group+' .fundgrid');if(!grid)continue;
    const list=items.filter(f=>inFundGroup(f,group)&&fundMatches(f,query)),index=list.findIndex(f=>f.code===code);
    const old=grid.querySelector('[data-fund-code="'+code+'"]');if(index<0){old?.remove();if(!grid.querySelector('.fundcard')&&!grid.querySelector('.empty'))grid.innerHTML='<p class="empty">未找到符合筛选条件的基金</p>';continue;}
@@ -195,7 +194,7 @@ function flushCardUpdates(){
  }
  $('#count').textContent=items.length;$('#predicted').textContent=items.filter(f=>Number.isFinite(f.navEstimate?.return)).length;
  const actual=items.filter(f=>hasPublishedReturn(f.record?.actual)),held=actual.filter(f=>f.group==='held').length;$('#published').innerHTML=actual.length+'<small class="metricSub">持有 '+held+' · 自选 '+(actual.length-held)+'</small>';
- for(const group of ['held','watch','bond']){const count=$('#tab-'+group+' span');if(count)count.textContent=items.filter(f=>inFundGroup(f,group)).length;}
+ for(const group of ['held','watch']){const count=$('#tab-'+group+' span');if(count)count.textContent=items.filter(f=>inFundGroup(f,group)).length;}
  if(selected&&codes.includes(selected))renderDetail(items.find(f=>f.code===selected));
 }
 function accuracyContent(f){return reliabilityPanel(f)+accuracyPanel(f.stats);}
@@ -211,7 +210,7 @@ function render() {
   const published=items.filter(f=>hasPublishedReturn(f.record?.actual)),pubHeld=published.filter(f=>(f.group??'watch')==='held').length;
   $('#published').innerHTML=published.length+`<small class="metricSub">持有 ${pubHeld} · 自选 ${published.length-pubHeld}</small>`;
   $('#predicted').textContent=items.filter(f=>Number.isFinite(f.navEstimate?.return)).length;
-  const groups=[['held','持有','持有基金'],['watch','自选','自选基金'],['bond','债基','债基']];
+  const groups=[['held','持有','持有债基'],['watch','自选','自选债基']];
   const tabs='<div class="fundTabs" role="tablist" aria-label="基金分组">'+groups.map(([group,label])=>`<div class="fundTabItem" role="presentation"><button data-action="view" type="button" role="tab" id="tab-${group}" data-fund-group="${group}" aria-controls="panel-${group}" aria-selected="${activeFundGroup===group}" tabindex="${activeFundGroup===group?0:-1}">${label}<span>${items.filter(f=>inFundGroup(f,group)).length}</span></button><button class="fundGroupRefresh" data-action="update" type="button" data-refresh-group="${group}" title="刷新${label}" aria-label="单独刷新${label}基金" ${busy||holdingsBusy?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 7v5h-5"/><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.3"/></svg></button></div>`).join('')+'</div>';
   $('#fundGroupTabs').innerHTML=tabs;
   $('#funds').innerHTML=groups.map(([group,label,noun])=>{
@@ -227,11 +226,11 @@ function render() {
 function renderComparison(){
   const funds=items.filter(f=>comparing.has(f.code)),el=$('#comparison');
   if(funds.length<2){el.innerHTML='<h2>基金对比</h2><p>在上方勾选2–8只基金，对比涨跌、估算质量与共同持仓。已选 '+funds.length+' 只。</p>';return;}
-  const metrics=[['预估涨跌',f=>pct(f.navEstimate?.return)],['净值日期',f=>f.date],['预估日期范围',f=>navPeriodLabel(f.navEstimate,f.date)],['基金公司公布涨跌',f=>pct(navReturnValue(f.record?.actual))],['公布比较区间',f=>navReturnDate(f.record?.actual,f.date)],['已用于估算的资产占比',f=>f.bond?'不适用（指数拟合）':(Number.isFinite(forecastInputs(f)?.model?.coverage)?num(forecastInputs(f).model.coverage,2)+'%':'—')],['估算所用持仓日期',f=>forecastInputs(f)?.holdingsDate??'—'],['已对比次数',f=>f.stats?.pairedCount??0],['最近30次平均相差（百分点）',f=>num(f.stats?.mae,2)]];
+  const metrics=[['预估涨跌',f=>pct(f.navEstimate?.return)],['净值日期',f=>f.date],['预估日期范围',f=>navPeriodLabel(f.navEstimate,f.date)],['基金公司公布涨跌',f=>pct(navReturnValue(f.record?.actual))],['公布比较区间',f=>navReturnDate(f.record?.actual,f.date)],['已对比次数',f=>f.stats?.pairedCount??0],['最近30次平均相差（百分点）',f=>num(f.stats?.mae,2)]];
   const holdings=new Map();
-  for(const f of funds)for(const h of f.latestHoldings?.rows??[]){const key=h.secid??h.code;const entry=holdings.get(key)??{name:h.name,code:h.code,weights:{}};entry.weights[f.code]=h.weight;holdings.set(key,entry);}
+  for(const f of funds)for(const h of f.bondHoldings?.rows??[]){const key=h.secid??h.code;const entry=holdings.get(key)??{name:h.name,code:h.code,weights:{}};entry.weights[f.code]=h.weight;holdings.set(key,entry);}
   const shared=[...holdings.values()].filter(h=>Object.keys(h.weights).length>=2);
-  el.innerHTML=`<h2>基金对比 · ${esc('自动日期（各基金以卡片为准）')}</h2><p class="muted">先看日期：只有算的是同一段时间，涨跌才适合直接比较。对比记录少时不排名。</p><div class="tablewrap"><table><thead><tr><th>指标</th>${funds.map(f=>`<th>${esc(f.name)}<br>${f.code}</th>`).join('')}</tr></thead><tbody>${metrics.map(([label,fn])=>`<tr><td>${label}</td>${funds.map(f=>`<td>${esc(fn(f))}</td>`).join('')}</tr>`).join('')}</tbody></table></div><h3>共同重仓股 · ${shared.length} 只</h3><p class="muted">基于各基金最新披露的持仓，不代表全部资产重合程度。</p><div class="tablewrap"><table><thead><tr><th>股票</th>${funds.map(f=>`<th>${f.code} 净资产占比</th>`).join('')}</tr></thead><tbody>${shared.map(h=>`<tr><td>${esc(h.name)} (${esc(h.code)})</td>${funds.map(f=>`<td>${h.weights[f.code]===undefined?'未在披露列表中':num(h.weights[f.code],2)+'%'}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="5">未发现共同披露持仓。</td></tr>'}</tbody></table></div>`;
+  el.innerHTML=`<h2>基金对比 · ${esc('自动日期（各基金以卡片为准）')}</h2><p class="muted">先看日期：只有算的是同一段时间，涨跌才适合直接比较。对比记录少时不排名。</p><div class="tablewrap"><table><thead><tr><th>指标</th>${funds.map(f=>`<th>${esc(f.name)}<br>${f.code}</th>`).join('')}</tr></thead><tbody>${metrics.map(([label,fn])=>`<tr><td>${label}</td>${funds.map(f=>`<td>${esc(fn(f))}</td>`).join('')}</tr>`).join('')}</tbody></table></div><h3>共同披露债券 · ${shared.length} 项</h3><p class="muted">基于各基金最新披露的持仓，不代表全部资产重合程度。</p><div class="tablewrap"><table><thead><tr><th>债券</th>${funds.map(f=>`<th>${f.code} 净资产占比</th>`).join('')}</tr></thead><tbody>${shared.map(h=>`<tr><td>${esc(h.name)} (${esc(h.code)})</td>${funds.map(f=>`<td>${h.weights[f.code]===undefined?'未在披露列表中':num(h.weights[f.code],2)+'%'}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="5">未发现共同披露持仓。</td></tr>'}</tbody></table></div>`;
 }
 $('#detail').addEventListener('click',e=>{
  const tab=e.target.closest('[data-dtab]');
@@ -440,14 +439,14 @@ api('/api/holdings/sync').then(showHoldingsSync).catch(()=>{});
 $('#refresh').onclick=refresh;
 $('#addForm').onsubmit=async e=>{e.preventDefault();const btn=e.currentTarget.querySelector('button[type=submit]'),group=$('#addGroup').value;btn.disabled=true;notice('');try{await api('/api/funds',{method:'POST',body:JSON.stringify({code:$('#code').value.trim(),group})});activeFundGroup=group;$('#code').value='';$('#addGroup').value='';$('#fundNamePreview').textContent='';await refresh();document.dispatchEvent(new CustomEvent('fund-selection',{detail:[...comparing]}));}catch(e){notice(e.message);}finally{btn.disabled=false;}};
 function switchFundGroup(group){
- if(!['held','watch','bond'].includes(group))return;
+ if(!['held','watch'].includes(group))return;
  activeFundGroup=group;
  for(const tab of document.querySelectorAll('[data-fund-group]')){const active=tab.dataset.fundGroup===group;tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;$('#panel-'+tab.dataset.fundGroup).hidden=!active;}
 }
 $('#fundGroupTabs').onclick=e=>{const action=e.target.closest('[data-refresh-group]');if(action){void refresh(false,action.dataset.refreshGroup);return;}const tab=e.target.closest('[data-fund-group]');if(tab)switchFundGroup(tab.dataset.fundGroup);};
 $('#fundGroupTabs').onkeydown=e=>{
  const tab=e.target.closest('[data-fund-group]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
- e.preventDefault();const order=['held','watch','bond'],idx=order.indexOf(activeFundGroup);
+ e.preventDefault();const order=['held','watch'],idx=order.indexOf(activeFundGroup);
  const group=e.key==='Home'?'held':e.key==='End'?'bond':e.key==='ArrowRight'?order[(idx+1)%order.length]:order[(idx+order.length-1)%order.length];
  switchFundGroup(group);$('#tab-'+group).focus();
 };
@@ -523,108 +522,3 @@ function renderIndexDetail(f){const p=forecastInputs(f),ix=p?.indexQuote??f.inde
   ])}`;
  $('#closeDetail').onclick=()=>{selected=null;$('#detailDialog').close();};
 }
-
-
-
-$('#exportImage').onclick=async()=>{
- if(busy||!items.length){notice('请等待基金数据加载完成后再导出');return;}
- const exportItems=items.filter(f=>f.code!=='019305'&&!f.bond&&!f.index&&!f.indexQuote&&!/债|联接|指数/.test(f.name));
- const exportActual=f=>[f.record?.actual,f.latestNav].find(row=>row?.date===(f.navEstimate?.to??f.date)&&Number.isFinite(navReturnValue(row)))??null;
- const actualKey=f=>{const a=exportActual(f);return [a?.returnFrom??a?.previousDate??('unknown-'+f.code),a?.returnTo??a?.date??f.date,'CNY'].join(':');};
- const estimateKey=f=>[f.navEstimate?.from??'unknown',f.navEstimate?.asOf??f.date,'CNY'].join(':');
- const allActualUpdated=exportItems.every(f=>Number.isFinite(navReturnValue(exportActual(f))))&&new Set(exportItems.map(actualKey)).size===1;
- const sameEstimatePeriod=new Set(exportItems.map(estimateKey)).size===1;
- const mixedOfficialPeriods=new Set(exportItems.filter(f=>exportActual(f)).map(actualKey)).size>1;
- const sortReturn=f=>{
-  const value=allActualUpdated?navReturnValue(exportActual(f)):f.navEstimate?.return;
-  return Number.isFinite(value)?value:-Infinity;
- };
- exportItems.sort((a,b)=>{
-  const groupA=allActualUpdated?'':estimateKey(a),groupB=allActualUpdated?'':estimateKey(b);
-  if(groupA!==groupB)return groupA.localeCompare(groupB);
-  const left=sortReturn(a),right=sortReturn(b);return left===right?0:right-left;
- });
- if(!exportItems.length){notice('没有符合图片导出条件的基金');return;}
- const exportButton=$('#exportImage');if(exportButton.disabled)return;exportButton.disabled=true;
- const progressDialog=document.createElement('dialog');progressDialog.className='exportProgress';progressDialog.setAttribute('aria-label','图片导出提示');
- const progressTitle=document.createElement('h2');progressTitle.textContent='正在导出图片';
- const progressText=document.createElement('p');progressText.setAttribute('role','status');progressText.textContent='正在获取导出图片的指数行情…';
- const progressBar=document.createElement('progress');progressBar.setAttribute('aria-label','图片导出进度');
- const dismiss=document.createElement('button');dismiss.textContent='关闭提示';dismiss.onclick=()=>progressDialog.close();
- progressDialog.append(progressTitle,progressText,progressBar,dismiss);document.body.append(progressDialog);progressDialog.showModal();
- try{
-  await document.fonts.ready;
-  const holidayData=await api('/api/export-data');
-  let canvas;
-  if(holidayData.holiday&&!exportItems.some(f=>f.navEstimate?.to)){
-   canvas=await drawHolidayExport(holidayData,{api,pct,document});
-  }else{
-  const windows=[...new Map(exportItems.map(f=>{const w={date:f.navEstimate?.asOf??f.date,...(f.navEstimate?.from?{from:f.navEstimate.from}:{}),target:f.navEstimate?.to??f.date,mode:f.navEstimate?.mode};return [JSON.stringify(w),w];})).values()];
-  const marketData=await api('/api/export-indices',{method:'POST',body:JSON.stringify({windows,currency:'CNY'})});
-  const marketHeight=windows.length*90+(!sameEstimatePeriod||mixedOfficialPeriods?28:0);
-  const tableTop=28+marketHeight,headerHeight=48,rowTop=tableTop+headerHeight;
-  canvas=document.createElement('canvas');const scale=2,width=1500,rowHeight=64;
-  const height=rowTop+exportItems.length*rowHeight+24;
-  canvas.width=width*scale;canvas.height=height*scale;
-  const ctx=canvas.getContext('2d');ctx.scale(scale,scale);
-  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);
-  const write=(text,x,y,size=18,fill='#17365e')=>{ctx.font=`${size}px "Microsoft YaHei", sans-serif`;ctx.fillStyle=fill;ctx.fillText(text,x,y);};
-  let marketY=24;
-  if(!sameEstimatePeriod||mixedOfficialPeriods){write('各基金收益区间不同或未确认，按预估区间分组；公布涨跌不能直接排名',32,marketY,16,'#62748c');marketY+=28;}
-  for(const window of windows){
-   const quote=marketData.items.find(w=>w.date===window.date&&(w.from??null)===(window.from??null));
-   const blockHeight=78,gap=12,leftW=300,tileW=(width-48-leftW-4*gap)/4;
-   ctx.fillStyle='#eef4ff';ctx.fillRect(24,marketY,leftW,blockHeight);
-   const period=navPeriodLabel({from:window.from,to:window.target,mode:window.mode??(window.from?'cumulative':'daily')});
-   write(period+(window.mode==='cumulative'?'合计预估':'预估'),40,marketY+31,22);
-   if(window.date<window.target)write('已计入到 '+window.date+' 的行情，尚未算完',40,marketY+58,14,'#62748c');
-   ['IXIC','NDX','SPX'].forEach((id,i)=>{
-    const x=24+leftW+gap+i*(tileW+gap),q=quote?.indices.find(q=>q.id===id);
-    ctx.fillStyle='#eef4ff';ctx.fillRect(x,marketY,tileW,blockHeight);
-    write(q?.name??id,x+14,marketY+28,18);
-    const cU=q?.usdValue??null,cR=q?.value??null,halfTile=tileW/2;
-    write('美',x+14,marketY+58,12,'#62748c');
-    write(pct(cU),x+30,marketY+58,20,cU>0?'#bc324b':cU<0?'#278363':'#62748c');
-    write('人',x+halfTile+8,marketY+58,12,'#62748c');
-    write(pct(cR),x+halfTile+24,marketY+58,20,cR>0?'#bc324b':cR<0?'#278363':'#62748c');
-   });
-   const fxq=quote?.fx,fxX=24+leftW+gap+3*(tileW+gap);
-   ctx.fillStyle='#eef4ff';ctx.fillRect(fxX,marketY,tileW,blockHeight);
-   write(fxq?.source==='人民币中间价'?'美元/人民币 · 中间价':'美元/人民币 · 参考',fxX+14,marketY+28,16);
-   write(fxq&&Number.isFinite(fxq.value)?pct(fxq.value):'缺汇率',fxX+14,marketY+58,20,fxq&&fxq.value>0?'#bc324b':fxq&&fxq.value<0?'#278363':'#62748c');
-   marketY+=blockHeight+12;
-  }
-  const xs=[32,190,950,1250];
-  ctx.fillStyle='#e9eff8';ctx.fillRect(24,tableTop,width-48,headerHeight);
-  ['基金代码','基金名称','预估涨跌','公布涨跌'].forEach((v,i)=>write(v,xs[i],tableTop+30));
-  exportItems.forEach((f,i)=>{
-   const y=rowTop+i*rowHeight,a=exportActual(f);
-   ctx.fillStyle=f.bond?'#eef8f2':f.index||f.indexQuote?'#eef4ff':i%2?'#f7f5fa':'#ffffff';ctx.fillRect(24,y,width-48,rowHeight);
-   write(f.code,xs[0],y+36);
-   ctx.font='18px "Microsoft YaHei", sans-serif';
-   let line='',lines=[];for(const ch of f.name){if(ctx.measureText(line+ch).width>550){lines.push(line);line=ch;}else line+=ch;}if(line)lines.push(line);
-   lines.slice(0,2).forEach((v,n)=>write(v,xs[1],y+30+n*24));
-   const value=f.navEstimate?.return;
-   write(Number.isFinite(value)?pct(value):'—',xs[2],y+36,21,value>0?'#bc324b':value<0?'#278363':'#62748c');
-   const actualValue=navReturnValue(a);
-   write(Number.isFinite(actualValue)?pct(actualValue):'—',xs[3],y+36,21,actualValue>0?'#bc324b':actualValue<0?'#278363':'#62748c');
-
-   if(f.stale||f.error)write('缓存 / 刷新异常',xs[0],y+56,12,'#a45d21');
-   if(f.modelError)write(f.modelError.slice(0,46),xs[1],y+rowHeight-5,11,'#a45d21');
-  });
-  // Single large diagonal watermark above all content, subtle but visible.
-  ctx.save();ctx.translate(width/2,height/2);ctx.rotate(-20*Math.PI/180);
-  ctx.fillStyle='rgba(23,54,94,0.08)';ctx.font=`700 ${Math.min(96,Math.round(width/14))}px "Microsoft YaHei", sans-serif`;ctx.textAlign='center';
-  ctx.fillText('净值观察台 · QDII HELP',0,0);
-  ctx.restore();ctx.textAlign='left';
-  }
-  const url=canvas.toDataURL('image/png'),dialog=document.createElement('dialog');dialog.className='exportPreview';
-  const heading=document.createElement('h2');heading.textContent='涨跌图片预览';
-  const close=document.createElement('button');close.textContent='关闭';close.setAttribute('data-action','neutral');close.onclick=()=>dialog.close();
-  const img=document.createElement('img');img.src=url;img.alt=holidayData.holiday?'国内假期各交易日预估与假期累计列表':'基金交易日期、名称、代码、预估涨跌与实际涨跌列表';
-  const download=document.createElement('a');download.href=url;download.download=(holidayData.holiday?'假期预估-':'基金涨跌-')+holidayData.today+'.png';download.textContent='下载 PNG 图片';
-  const header=document.createElement('div');header.className='dialoghead';const actions=document.createElement('div');actions.className='previewActions';actions.append(download,close);header.append(heading,actions);
-  const content=document.createElement('div');content.className='exportPreviewBody';content.tabIndex=0;content.ariaLabel='涨跌图片，可滚动查看';content.append(img);
-  dialog.append(header,content);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);progressDialog.close();progressDialog.remove();dialog.showModal();
- }catch(e){progressTitle.textContent='图片导出失败';progressText.textContent=e.message;progressBar.hidden=true;dismiss.textContent='关闭';progressDialog.addEventListener('close',()=>progressDialog.remove());if(!progressDialog.open)progressDialog.showModal();}finally{exportButton.disabled=false;}
-};

@@ -3,7 +3,7 @@ import {holdingsChanged,selectHoldingSnapshot} from './holdings-version.mjs';
 import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs';
 import {indexForFund} from './indices.mjs';
 
-const indexProfile=profile=>!!profile&&(!!profile.index||!!indexForFund(profile.name??'')||/联接|指数/.test(profile.name??''));
+const indexProfile=profile=>!!profile&&!profile.bond&&(!!profile.index||!!indexForFund(profile.name??'')||/联接|指数/.test(profile.name??''));
 export function isIndexFund(data,code){
  return indexProfile(data.profiles?.[code]?.profile)||Object.values(data.lastView??{}).some(v=>v.code===code&&indexProfile(v));
 }
@@ -23,7 +23,7 @@ export function syncComparison(previous,latest){
 }
 export function stockHoldingsReport(report,data){
  if(!report)return null;
- const items=report.items.filter(r=>!isIndexFund(data,r.code)&&!indexProfile(r)).map(r=>{
+ const items=report.items.filter(r=>(!data.watchlist||data.watchlist.includes(r.code))&&!isIndexFund(data,r.code)&&!indexProfile(r)).map(r=>{
   const bond=isBondFund(data,r.code)||!!r.bond;
   const candidates=bond?[data.bondHoldingsSnapshots?.[r.code]]:[data.holdingsSnapshots?.[r.code],...Object.values(data.lastView??{}).filter(v=>v.code===r.code).map(v=>v.latestHoldings)];
   const holding=[r.holdings,...candidates].find(h=>h?.asOf===r.date&&h?.rows?.length);

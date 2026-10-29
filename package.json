@@ -7,7 +7,8 @@
     "build": "node scripts/build.mjs",
     "preview": "node scripts/preview.mjs",
     "test": "node --test test/*.test.mjs",
-    "pretest": "node scripts/policy-version.mjs"
+    "pretest": "node scripts/policy-version.mjs",
+    "verify:browser": "node test/preview-smoke.mjs"
   },
   "engines": {
     "node": ">=22"

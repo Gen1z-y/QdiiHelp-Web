@@ -1,3 +1,5 @@
+import {forecastHistory} from './lib/forecast-history.mjs';
+import {requireBond,migrateBondUniverse} from './bond-policy.mjs';
 import {navObservation,navEstimate,navSnapshot,observationPlan,previousNavDate,reconcileObservation,planForFund} from './lib/nav-observation.mjs';
 import {PERIOD_VERSION,pendingPublications,marketProgress,publishedPeriod} from './lib/nav-period.mjs';
 import {session} from './lib/calendar.mjs';
@@ -7,10 +9,6 @@ import {RefreshInputs} from './lib/refresh-inputs.mjs';
 import {FundStatsCache} from './lib/fund-stats-cache.mjs';
 import {calendarCoverage} from './lib/calendar-maintenance.mjs';
 import {sourceStatus} from './lib/source-status.mjs';
-import {holidayExport,forecastHistory,holidayWindow} from './lib/holiday-export.mjs';
-import {reconstructForecast} from './lib/forecast-backfill.mjs';
-import {globalMarkets} from './lib/global-markets.mjs';
-import {exportIndices} from './lib/export-indices.mjs';
 import {syncHoldings,stockHoldingsReport,syncComparison} from './lib/holdings-sync.mjs';
 import {holdingsAnnouncements} from './lib/holdings-announcements.mjs';
 import {bondObservation} from './lib/bond-date.mjs';
@@ -30,6 +28,7 @@ import {bondReference,usableBondReference} from './lib/bond-reference.mjs';
 import {bondFitForecast} from './lib/bond-forecast.mjs';
 import {BrowserStore} from './browser-store.mjs';
 const store=await BrowserStore.open(globalThis.QDII_NAMESPACE);
+if(migrateBondUniverse(store.data))await store.save();
 const usePostgres=false,historyRoot='browser',origin='https://qdii.invalid',port=0;
 configureHistoryStorage({read:code=>store.history.get(code),load:code=>store.readHistory(code),write:(code,data)=>store.saveHistory(code,data)});
 configureFxStorage({read:key=>store.data.fxSnapshots?.[key],write:(key,value)=>{store.data.fxSnapshots??={};store.data.fxSnapshots[key]=value;store.deferSave();}});
@@ -82,7 +81,7 @@ async function update(code,targetDate,{force=false,onStage=()=>{},onOfficial=()=
       onStage('获取正式净值与基金资料');
       const navPromise=inputs?inputs.nav(code,()=>navs(code,true)):navs(code,true);
       const [nav,profile]=await Promise.all([navPromise,inputs?inputs.profile(code,()=>profileFor(code,force,check)):profileFor(code,force,check)]);
-      check();const initialActual=nav.find(n=>n.date===targetDate);
+      requireBond(profile);check();const initialActual=nav.find(n=>n.date===targetDate);
       onOfficial({code,name:profile.name,bond:profile.bond,index:!!indexForFund(profile.name)||/联接|指数/.test(profile.name),group:store.data.fundGroups?.[code]??'watch',date:targetDate,actual:initialActual?{...initialActual,previousDate:nav.find(n=>n.date<targetDate)?.date}:null,latestNav:nav[0]});
       check();
       let navWarning=null;try{const cross=await navCrossCheck(code,nav);if(cross&&!cross.ok)navWarning=cross.reason;}catch{}
@@ -207,19 +206,8 @@ function stats(code,historyRows,targetDate,validation=false) {
 }
 async function profileFor(code,force=false,check=()=>{}){
  const saved=store.data.profiles?.[code];
- if(!force&&saved&&Date.now()-Date.parse(saved.fetchedAt)<3600000)return saved.profile;
- const profile=await fundProfile(code,{force,check});check();store.data.profiles??={};store.data.profiles[code]={profile,fetchedAt:new Date().toISOString()};return profile;
-}
-// Independent USD/CNY daily reference; each fund validates its own valuation FX.
-async function fxSummary(date){
- const dailyBase=previousWeekday(new Date(date+'T12:00:00Z'));
- const fx=await fxMovement('USD',dailyBase,date);
- return {date,dailyReturn:fx.return,close:fx.target?.close??null,closeDate:fx.target?.date??null,previousClose:fx.base?.close??null,previousDate:fx.base?.date??null,carried:(fx.target?.date??null)!==date,source:fx.source??null,savedAt:new Date().toISOString()};
-}
-function startFxDisplay(date){
- if(fxDisplayTasks.has(date))return fxDisplayTasks.get(date);
- const task=fxSummary(date).catch(e=>({date,error:e.message,savedAt:new Date().toISOString()})).then(fx=>{store.data.fxDisplay??={};store.data.fxDisplay[date]=fx;store.deferSave();return fx;}).finally(()=>fxDisplayTasks.delete(date));
- fxDisplayTasks.set(date,task);return task;
+ if(!force&&saved&&Date.now()-Date.parse(saved.fetchedAt)<3600000)return requireBond(saved.profile);
+ const profile=requireBond(await fundProfile(code,{force,check}));check();store.data.profiles??={};store.data.profiles[code]={profile,fetchedAt:new Date().toISOString()};return profile;
 }
 function fundPlan(code,nav=null,now=new Date()){
  const profile=store.data.profiles?.[code]?.profile;
@@ -261,7 +249,7 @@ async function snapshot(date){
   if(lastAttempt?.error)view={...view,error:lastAttempt.error,stale:!!known};
   if(date==='auto'&&known?.bond&&known.latestNav?.date===target&&view.date!==target){const record=store.data.records[code+':'+target]??{};view={...known,date:target,record:{...record,actual:record.actual??known.latestNav}};}
   const history=savedHistory(code,historyRoot)??{rows:[]};return [{...decorate(view,history,view.date),...(date==='auto'&&view.bond?{domesticClosure:bondObservation(chinaDate(),view.latestNav?.date).closure}:{}),fromSaved:!!known,requestedDate:target}];
- });return {date,items,serverTime:new Date().toISOString(),cached:true,fx:store.data.fxDisplay?.[date==='auto'?navObservation():date]??null};
+ });return {date,items,serverTime:new Date().toISOString(),cached:true,fx:null};
 }
 async function list(...args){
  if(holdingsSyncTask)await holdingsSyncTask;
@@ -271,7 +259,7 @@ async function list(...args){
 function profileIsBond(code){return !!store.data.profiles?.[code]?.profile?.bond;}
 async function listImpl(date,onProgress=()=>{},{force=false,preserveHistory=false,holdingsForecastCodes=new Set(),group=null,codes:onlyCodes=null}={}) {const codes=store.data.watchlist.filter(code=>(!onlyCodes||onlyCodes.includes(code))&&(!group||(group==='bond'?(profileIsBond(code)||Object.values(store.data.lastView).some(v=>v.code===code&&v.bond)):(store.data.fundGroups?.[code]??'watch')===group)));let completed=0;onProgress({completed,total:codes.length});
  const stockTarget=date==='auto'?navObservation():date,inputs=new RefreshInputs();
- startFxDisplay(stockTarget);
+ // Bond-only refresh does not request foreign exchange display data.
  const fundTasks=new Map();
  const items=await mapLimit(codes,async c=>{
   const onStage=stage=>onProgress({completed,total:codes.length,code:c,name:store.data.profiles?.[c]?.profile?.name??c,stage});
@@ -311,7 +299,7 @@ async function listImpl(date,onProgress=()=>{},{force=false,preserveHistory=fals
    return decorate(view,savedHistory(c,historyRoot)??{rows:[]},target);
   });
   onProgress({completed:++completed,total:codes.length,code:c,name:item.name,item});return item;
- },3);if(store.saveTimer)store.save();if(!preserveHistory)startHistorySync(codes);return {date,items,serverTime:new Date().toISOString(),historySync:!preserveHistory,fx:store.data.fxDisplay?.[stockTarget]??null,fxUpdating:fxDisplayTasks.has(stockTarget)};}
+ },3);if(store.saveTimer)store.save();if(!preserveHistory)startHistorySync(codes);return {date,items,serverTime:new Date().toISOString(),historySync:!preserveHistory,fx:null,fxUpdating:fxDisplayTasks.has(stockTarget)};}
 
 let historySyncTask=null;
 const historySyncQueue=new Set(),historySyncScheduled=new Set();
@@ -345,19 +333,14 @@ async function body(req,limit=2048) {let raw='';for await(const c of req){raw+=c
 export async function handleRequest(req,res){
   try{
     const url=new URL(req.url,origin);
-    if(url.pathname==='/api/runtime'&&req.method==='GET')return send(res,200,{version:'2026.10.15-speed',startedAt,now:new Date().toISOString(),...runtimeStatus(),storage:store.backend??'json',lastSavedAt:store.lastSavedAt??null,saveError:store.lastError?.message??store.runtime?.error?.message??null,historySync:historySyncState,refreshes:refreshTasks.list().slice(0,5),calendars:calendarCoverage(),sources:sourceStatus(Object.values(store.data.lastView)),errors:runtimeErrors,memory:null,historyCache:{fullFunds:store.history?.size??0,summaryFunds:store.historyRecent?.size??0}});
+    if(url.pathname==='/api/runtime'&&req.method==='GET')return send(res,200,{version:'2026.10.15-speed',startedAt,now:new Date().toISOString(),...runtimeStatus(),storage:store.backend??'json',lastSavedAt:store.lastSavedAt??null,inactiveFundCount:Object.keys(store.data.inactiveFunds??{}).length,saveError:store.lastError?.message??store.runtime?.error?.message??null,historySync:historySyncState,refreshes:refreshTasks.list().slice(0,5),calendars:calendarCoverage(),sources:sourceStatus(Object.values(store.data.lastView)),errors:runtimeErrors,memory:null,historyCache:{fullFunds:store.history?.size??0,summaryFunds:store.historyRecent?.size??0}});
     if(url.pathname==='/api/refresh'&&req.method==='GET')return send(res,200,{runs:url.searchParams.get('brief')==='1'?refreshTasks.list().slice(0,5).map(r=>({...r,items:r.items.filter(item=>item.error),brief:true})):refreshTasks.list()});
     const refreshRoute=/^\/api\/refresh\/([^/]+)(\/retry)?$/.exec(url.pathname);
     if(refreshRoute&&req.method==='GET'&&!refreshRoute[2]){const run=refreshTasks.get(refreshRoute[1]);return send(res,run?200:404,run??{error:'刷新记录不存在'});}
-    if(url.pathname==='/api/history-sync'&&req.method==='GET'){const date=navObservation();return send(res,200,{...historySyncState,fx:store.data.fxDisplay?.[date]??null,fxUpdating:fxDisplayTasks.has(date)});}
-    if(url.pathname==='/api/global-markets' && req.method==='GET'){
-      const force=url.searchParams.get('refresh')==='1';
-      if(url.searchParams.get('stream')==='1')return await streamFunds(res,progress=>globalMarkets(force,progress));
-      return send(res,200,await globalMarkets(force));
-    }
+    if(url.pathname==='/api/history-sync'&&req.method==='GET'){const date=navObservation();return send(res,200,{...historySyncState,fx:null,fxUpdating:fxDisplayTasks.has(date)});}
     if(url.pathname==='/api/history' && req.method==='GET'){
       const codes=[...new Set((url.searchParams.get('codes')||store.data.watchlist.slice(0,8).join(',')).split(',').filter(Boolean))];
-      if(codes.length<1||codes.length>8)throw new Error('请选择1–8只基金');codes.forEach(checkCode);
+      if(codes.length<1||codes.length>8)throw new Error('请选择1–8只基金');codes.forEach(code=>{checkCode(code);if(!store.data.watchlist.includes(code))throw Error('请先添加支持的债基');});
       const days=Number(url.searchParams.get('days')||90);if(![0,30,90,180,365,1095,1825].includes(days))throw new Error('不支持的时间范围');
       const all=await mapLimit(codes,async code=>{
         const from=days>0&&url.searchParams.get('format')!=='detail'?new Date(Date.parse(chinaDate())-days*86400000).toISOString().slice(0,10):null;
@@ -373,46 +356,11 @@ export async function handleRequest(req,res){
      const task=startRefresh({date:'auto',group,source:'page'});return send(res,202,task.report);
     }
     if(refreshRoute?.[2]&&req.method==='POST'){const task=refreshTasks.retry(refreshRoute[1]);return send(res,202,task.report);}
-    if(url.pathname==='/api/browser/export'&&req.method==='GET'){
-      if(runtimeStatus().busy)throw Error('请等待当前任务完成后再导出');
-      return send(res,200,await store.exportBackup());
-    }
-    if(url.pathname==='/api/browser/import'&&req.method==='POST'){
-      if(runtimeStatus().busy)throw Error('请等待当前任务完成后再导入');
-      const backup=await body(req,80*1024*1024);
-      await store.importBackup(backup);return send(res,200,{ok:true});
-    }
     if(url.pathname==='/api/browser/flush')return send(res,200,{ok:true,lastSavedAt:store.lastSavedAt});
-    if(url.pathname==='/api/forecasts/backfill'&&req.method==='POST'){
-      const {code,dates}=await body(req);checkCode(code);
-      if(!store.data.watchlist.includes(code)||!Array.isArray(dates)||!dates.length||dates.length>10)throw new Error('请选择已有基金的 1–10 个历史日期');
-      dates.forEach(checkDate);
-      const profile=await profileFor(code);
-      if(profile.bond||/联接|指数/.test(profile.name)||profile.allocation?.stock===0)throw new Error('该基金不支持股票持仓补算');
-      const holding=store.data.holdingsSnapshots?.[code]??await holdings(code),nav=await navs(code,true),results=[];
-      for(const date of [...new Set(dates)]){
-        const key=code+':'+date;
-        if(Number.isFinite(store.data.records[key]?.forecast?.model?.dailyReturn)){results.push({date,status:'已有预估，保留原记录'});continue;}
-        try{
-          const reconstruction=await reconstructForecast({date,name:profile.name,holdings:holding,nav,rowWithPrices});
-          const record=store.data.records[key]??={};record.reconstruction=reconstruction;
-          results.push({date,status:'已补算',...reconstruction});
-        }catch(e){results.push({date,status:'补算失败',error:e.message});}
-      }
-      store.save();return send(res,200,{code,results});
-    }
-    if(url.pathname==='/api/export-data'&&req.method==='GET'){
-     const hw=holidayWindow();
-     if(hw)for(const d of hw.dates)if(!store.data.fxDisplay?.[d])try{store.data.fxDisplay??={};store.data.fxDisplay[d]=await fxSummary(d);}catch{}
-     if(store.saveTimer)store.save();
-     return send(res,200,holidayExport((await snapshot('auto')).items,store.data.records,new Date(),store.data.fxDisplay));
-    }
-    if(url.pathname==='/api/export-indices' && req.method==='POST'){
-      const {windows,currency='CNY'}=await body(req);return send(res,200,await exportIndices(windows,{currency}));
-    }
-    if(url.pathname==='/api/fund-profile' && req.method==='GET')return send(res,200,await fundProfile(checkCode(url.searchParams.get('code')||'')));
+    if(url.pathname==='/api/fund-profile' && req.method==='GET')return send(res,200,requireBond(await fundProfile(checkCode(url.searchParams.get('code')||''))));
     if(url.pathname==='/api/holdings/announcements' && req.method==='GET'){
       const code=checkCode(url.searchParams.get('code')||'');
+      if(!store.data.watchlist.includes(code))throw Error('请先添加支持的债基');
       const dates=[url.searchParams.get('date'),url.searchParams.get('previousDate')].filter(Boolean);
       if(!dates.length||dates.some(d=>!validDate(d)))return send(res,400,{error:'披露日期无效'});
       return send(res,200,await holdingsAnnouncements(code,dates));
@@ -525,7 +473,7 @@ export async function handleRequest(req,res){
       const {code,group}=await body(req);checkCode(code);
       if(!['held','watch'].includes(group))throw new Error('请选择加入自选或持有');
       if(store.data.watchlist.length>=60&&!store.data.watchlist.includes(code))throw new Error('最多保存60只基金');
-      await Promise.all([navs(code),fundProfile(code)]);store.add(code,group);return send(res,200,{ok:true,group});
+      const profile=requireBond(await fundProfile(code));await navs(code);store.data.profiles??={};store.data.profiles[code]={profile,fetchedAt:new Date().toISOString()};delete store.data.inactiveFunds?.[code];store.add(code,group);return send(res,200,{ok:true,group});
     }
     const match=url.pathname.match(/^\/api\/funds\/(\d{6})$/);
     if(match && req.method==='DELETE'){store.remove(match[1]);return send(res,200,{ok:true});}

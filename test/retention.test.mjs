@@ -6,7 +6,7 @@ import {pruneOldObservations,hasOldObservations,RETENTION_DAYS} from '../site/li
 
 import {forecastStats} from '../site/lib/forecast-stats.mjs';
 import {evidenceStats} from '../site/lib/model-evidence.mjs';
-import {forecastHistory} from '../site/lib/holiday-export.mjs';
+import {forecastHistory} from '../site/lib/forecast-history.mjs';
 import {invalidateForecasts} from '../site/lib/forecast-policy.mjs';
 import {replaySealedForecasts} from '../site/lib/replay-audit.mjs';
 

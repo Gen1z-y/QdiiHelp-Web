@@ -38,4 +38,3 @@ export async function browserFetch(url,options={}){
   worker.postMessage({type:'request',id,url,options:{method:options.method,body:options.body}});
  });
 }
-export async function configureProxy(proxyUrl){await ready;return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,fail:reject,cleanup:()=>pending.delete(id)});worker.postMessage({type:'configure',id,proxyUrl});});}
