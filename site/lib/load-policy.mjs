@@ -1,5 +1,5 @@
-import {holdingsChanged} from './holdings-version.mjs?v=bond-20261029';
-import {holdingDateIssue} from './estimation-rules.mjs?v=bond-20261029';
+import {holdingsChanged} from './holdings-version.mjs?v=bond-v2-20261029';
+import {holdingDateIssue} from './estimation-rules.mjs?v=bond-v2-20261029';
 export function canReuseView(view,saved,{force=false,now=Date.now(),ttl=300000}={}){
  if(force||!view||view.error||view.stale)return false;
  // Only complete primary-source results are settled. Poll partial/supplemented

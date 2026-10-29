@@ -1,5 +1,5 @@
-import {session,shiftDate} from './calendar.mjs?v=bond-20261029';
-import {comparableNavPair} from './nav-publication.mjs?v=bond-20261029';
+import {session,shiftDate} from './calendar.mjs?v=bond-v2-20261029';
+import {comparableNavPair} from './nav-publication.mjs?v=bond-v2-20261029';
 
 // Fund-specific non-open days, verified against the manager's 2026 notice.
 // CN exchange holidays/weekends are handled by calendar.mjs. Do not infer

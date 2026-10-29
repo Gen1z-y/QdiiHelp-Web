@@ -13,7 +13,7 @@ export async function initialize(proxyUrl){
    resolve();await new Promise(()=>{});
   }).catch(reject);
  });
- worker=new Worker(new URL('./browser-worker.mjs?v=bond-20261029',import.meta.url),{type:'module'});
+ worker=new Worker(new URL('./browser-worker.mjs?v=bond-v2-20261029',import.meta.url),{type:'module'});
  worker.onerror=event=>fail(Error('浏览器计算线程异常：'+event.message));
  worker.onmessage=({data:m})=>{
   if(m.type==='ready'){readyResolve();return;}

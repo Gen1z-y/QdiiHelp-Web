@@ -1,4 +1,4 @@
-import {browserFetch as fetch} from './browser-client.mjs?v=bond-20261029';
+import {browserFetch as fetch} from './browser-client.mjs?v=bond-v2-20261029';
 // Deadlines cover both response headers and response-body consumption.
 function deadline(timeoutMs){
  const controller=new AbortController();let timer;

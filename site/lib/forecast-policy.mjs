@@ -1,15 +1,17 @@
-import {previousWeekday,validDate} from './model.mjs?v=bond-20261029';
-import {usableFx} from './provider.mjs?v=bond-20261029';
-import {marketId,marketStatus,quoteDateMatches,session,expectedCloseDate,shiftDate} from './calendar.mjs?v=bond-20261029';
-import {holdingDateIssue} from './estimation-rules.mjs?v=bond-20261029';
-import {MIN_BOND_SAMPLES,MIN_BOND_R2} from './bond-reference.mjs?v=bond-20261029';
+import {adaptiveFitReturn,pureBondDisclosure,BOND_VALIDATION_DAYS} from './bond-adaptive.mjs?v=bond-v2-20261029';
+import {disclosureAt} from './bond-disclosure.mjs?v=bond-v2-20261029';
+import {previousWeekday,validDate} from './model.mjs?v=bond-v2-20261029';
+import {usableFx} from './provider.mjs?v=bond-v2-20261029';
+import {marketId,marketStatus,quoteDateMatches,session,expectedCloseDate,shiftDate} from './calendar.mjs?v=bond-v2-20261029';
+import {holdingDateIssue} from './estimation-rules.mjs?v=bond-v2-20261029';
+import {MIN_BOND_SAMPLES,MIN_BOND_R2} from './bond-reference.mjs?v=bond-v2-20261029';
 
 // forecastIssue is deterministic in (forecast, name, rule code), so validated
 // entries are stamped with a fingerprint of every rule-relevant module and
 // later startups only re-check unstamped ones. Editing any rule module changes
 // the fingerprint and forces one full sweep; runtime-written forecasts were
 // already validated by this same code version before being saved.
-export const FORECAST_POLICY_VERSION='f5b9e3ca06f0515c';
+export const FORECAST_POLICY_VERSION='eeee76de09b98196';
 
 // Conservative close-only policy. Unverified holiday carry is not a daily forecast.
 export function forecastIssue(forecast,name='') {
@@ -46,6 +48,22 @@ export function forecastIssue(forecast,name='') {
   if(fx?.base?.date!==base.date||fx?.target?.date!==date||!Number.isFinite(fx.return))return '指数预估缺少对应日期汇率';
   const expected=(1+q.dailyReturn)*(1+fx.return)-1;
   if(!Number.isFinite(expected)||!Number.isFinite(forecast.model.return)||Math.abs(expected-forecast.model.return)>1e-10||!(forecast.model.value>0))return '指数预估无效';
+  return null;
+ }
+ if(forecast.model?.method==='bond-fit-v2'){
+  const {date,base,model,fit}=forecast;
+  if(!validDate(date)||!validDate(base?.date)||!(base.value>0)||base.provisional)return '缺少正式净值基准';
+  if(session(date,'CN').closed)return '国内休市不生成债基预估';
+  const captured=forecast.calculatedAt?new Date(forecast.calculatedAt):null;
+  if(!captured||Number.isNaN(captured.getTime())||marketStatus(date,'CN',captured).state!=='complete')return '债基预估须在A股收盘确认后生成';
+  if(base.date!==expectedCloseDate(shiftDate(date,-1),'CN'))return '缺少前一交易日基准，区间涨跌不能作为单日预测';
+  const v=fit?.validation,d=fit?.disclosure;
+  if(!pureBondDisclosure(disclosureAt([d],date))||!(fit?.samples>=MIN_BOND_SAMPLES)||!(fit?.r2>=MIN_BOND_R2)
+   ||v?.count!==BOND_VALIDATION_DAYS||!validDate(v.from)||!validDate(v.to)||v.from>v.to||v.to>=date||v.unit!=='return'
+   ||![v.baselineMae,v.candidateMae,v.baselineWorst,v.candidateWorst,v.recentBaselineMae,v.recentCandidateMae].every(x=>Number.isFinite(x)&&x>=0)
+   ||!(v.candidateMae<v.baselineMae*.95&&v.candidateWorst<=v.baselineWorst*1.1&&v.recentCandidateMae<=v.recentBaselineMae*1.05))return '持仓约束债基拟合验证不完整';
+  const expected=adaptiveFitReturn(fit,date);
+  if(expected===null||!Number.isFinite(model?.return)||Math.abs(model.return-expected)>1e-9||model.dailyReturn!==model.return||!(model.value>0)||Math.abs(model.value-base.value*(1+model.return))>base.value*1e-9)return '持仓约束债基预估无效';
   return null;
  }
  if(forecast.model?.method==='bond-fit-v1'){

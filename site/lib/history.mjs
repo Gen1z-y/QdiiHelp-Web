@@ -1,4 +1,4 @@
-import {navPercent} from './nav-publication.mjs?v=bond-20261029';
+import {navPercent} from './nav-publication.mjs?v=bond-v2-20261029';
 export function buildComparison(series,days=90,now=new Date()) {
   if(series.length<1)throw new Error('请选择基金');
   const cutoff=new Date(now);cutoff.setUTCDate(cutoff.getUTCDate()-(days===0?100000:days));const start=cutoff.toISOString().slice(0,10);

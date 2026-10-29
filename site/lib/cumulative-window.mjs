@@ -1,5 +1,5 @@
-import {shiftDate} from './calendar.mjs?v=bond-20261029';
-import {validDate} from './model.mjs?v=bond-20261029';
+import {shiftDate} from './calendar.mjs?v=bond-v2-20261029';
+import {validDate} from './model.mjs?v=bond-v2-20261029';
 
 export function cumulativeWindow(fund){
  const p=fund.record?.forecast,base=p?.base?.date,target=fund.date;

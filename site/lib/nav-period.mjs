@@ -1,5 +1,5 @@
-import {session,shiftDate,marketId,marketStatus} from './calendar.mjs?v=bond-20261029';
-import {validDate} from './model.mjs?v=bond-20261029';
+import {session,shiftDate,marketId,marketStatus} from './calendar.mjs?v=bond-v2-20261029';
+import {validDate} from './model.mjs?v=bond-v2-20261029';
 
 export const PERIOD_VERSION='fund-period-v1';
 export function periodDays(from,to){

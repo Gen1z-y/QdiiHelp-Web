@@ -1,4 +1,4 @@
-import {randomUUID} from '../browser-crypto.mjs?v=bond-20261029';
+import {randomUUID} from '../browser-crypto.mjs?v=bond-v2-20261029';
 
 // Reports contain summaries only. Computation continues if a browser disconnects.
 export class RefreshTasks {

@@ -1,5 +1,9 @@
 // Public market data only. No business state, databases, cookies or user backups.
+import {ADAPTIVE_BOND_FACTORS} from '../site/lib/bond-factors.mjs';
+const wealthIds=new Set(ADAPTIVE_BOND_FACTORS.map(f=>f.id));
 const routes={
+ 'yield.chinabond.com.cn':[/^\/cbweb-mn\/indices\/singleIndexQueryResult$/,['indexid','qxlxt','ltcslx','zslxt','zslxt1','lx','locale']],
+ 'np-cnotice-fund.eastmoney.com':[/^\/api\/content\/ann$/,['client_source','show_all','art_code']],
  'api.fund.eastmoney.com':[/^\/f10\/(lsjz|JJGG)$/,['fundCode','fundcode','pageIndex','pageSize','type']],
  'fundf10.eastmoney.com':[/^\/(FundArchivesDatas\.aspx|jjgg_\d{6}_3\.html)$/,['type','code','topline','year','month']],
  'fund.eastmoney.com':[/^\/pingzhongdata\/\d{6}\.js$/,[]],
@@ -24,6 +28,11 @@ export function validateTarget(raw){
   if(['pageIndex','pageSize','topline','count','lmt','datalen'].includes(key)&&(!/^\d+$/.test(value)||Number(value)<1||Number(value)>(key==='pageIndex'?2000:key==='topline'?1000:key==='pageSize'?200:500)))throw Error('查询范围超限');
   if(['fundCode','fundcode','code'].includes(key)&&!/^\d{6}$/.test(value))throw Error('基金代码无效');
  }
+ if(url.hostname==='yield.chinabond.com.cn'){
+  const fixed={qxlxt:'00',ltcslx:'',zslxt:'CFZS',zslxt1:'CFZS',lx:'1',locale:'zh_CN'};
+  if(!wealthIds.has(url.searchParams.get('indexid'))||Object.entries(fixed).some(([k,v])=>url.searchParams.get(k)!==v))throw Error('只允许已核对的中债财富因子');
+ }
+ if(url.hostname==='np-cnotice-fund.eastmoney.com'&&(url.searchParams.get('client_source')!=='web_fund'||url.searchParams.get('show_all')!=='1'||!/^AN\d{1,30}$/.test(url.searchParams.get('art_code')??'')))throw Error('报告正文参数无效');
  return url;
 }
 const MAX_BYTES=2*1024*1024;
@@ -56,8 +65,11 @@ export function createHandler({fetcher=fetch,cache=null}={}){return async(reques
  try{
   const hit=await cache?.match(cacheKey);
   if(hit)return new Response(hit.body,{status:200,headers:{...headers,'Content-Type':hit.headers.get('Content-Type')??'application/octet-stream'}});
-  const referer=target.hostname==='hq.sinajs.cn'?'https://finance.sina.com.cn/':target.hostname.endsWith('gtimg.cn')?'https://gu.qq.com/':'https://fundf10.eastmoney.com/';
-  const response=await fetcher(target.href,{method:'GET',headers:{'User-Agent':'Mozilla/5.0 QdiiHelp-Web/1.0','Referer':referer,'Accept':'*/*'},redirect:'manual',signal:AbortSignal.timeout(18000)});
+  const wealth=target.hostname==='yield.chinabond.com.cn';
+  const referer=wealth?'https://yield.chinabond.com.cn/cbweb-mn/indices/single_index_query':target.hostname==='hq.sinajs.cn'?'https://finance.sina.com.cn/':target.hostname.endsWith('gtimg.cn')?'https://gu.qq.com/':'https://fundf10.eastmoney.com/';
+  // The public proxy remains GET-only. The fixed wealth query requires an
+  // upstream POST without a body; callers cannot choose arbitrary POST targets.
+  const response=await fetcher(target.href,{method:wealth?'POST':'GET',headers:{'User-Agent':'Mozilla/5.0 QdiiHelp-Web/1.0','Referer':referer,'Accept':'*/*'},redirect:'manual',signal:AbortSignal.timeout(18000)});
   if(!response.ok){await response.body?.cancel();return result({error:'公开数据源返回 HTTP '+response.status},502);}
   const bytes=await readBounded(response),type=response.headers.get('Content-Type')??'application/octet-stream';
   if(cache)ctx.waitUntil(cache.put(cacheKey,new Response(bytes,{headers:{'Content-Type':type,'Cache-Control':'public,max-age=60'}})));

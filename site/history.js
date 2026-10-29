@@ -1,4 +1,4 @@
-import {requestJson} from './request.js?v=bond-20261029';
+import {requestJson} from './request.js?v=bond-v2-20261029';
 const el=document.querySelector('#performance');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=v=>Number.isFinite(v)?`${v>0?'+':''}${(v*100).toFixed(2)}%`:'—';

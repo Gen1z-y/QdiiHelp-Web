@@ -20,7 +20,7 @@ async function serve(message){
 onmessage=async({data:message})=>{
  if(message.type==='init'){
   if(initializing)return;initializing=true;
-  try{globalThis.QDII_NAMESPACE=message.namespace;proxyUrl=validateProxy(message.proxyUrl);engine=await import('./engine.mjs?v=bond-20261029');postMessage({type:'ready'});}catch(error){postMessage({type:'fatal',error:error.message});}
+  try{globalThis.QDII_NAMESPACE=message.namespace;proxyUrl=validateProxy(message.proxyUrl);engine=await import('./engine.mjs?v=bond-v2-20261029');postMessage({type:'ready'});}catch(error){postMessage({type:'fatal',error:error.message});}
   return;
  }
  if(!engine){postMessage({id:message.id,type:'error',error:'浏览器数据尚未准备好'});return;}

@@ -1,7 +1,8 @@
-import {holdings,bondHoldings,fundProfile,mapLimit} from './provider.mjs?v=bond-20261029';
-import {holdingsChanged,selectHoldingSnapshot} from './holdings-version.mjs?v=bond-20261029';
-import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs?v=bond-20261029';
-import {indexForFund} from './indices.mjs?v=bond-20261029';
+import {mergeBondHolding} from './bond-disclosure.mjs?v=bond-v2-20261029';
+import {holdings,bondHoldings,fundProfile,mapLimit} from './provider.mjs?v=bond-v2-20261029';
+import {holdingsChanged,selectHoldingSnapshot} from './holdings-version.mjs?v=bond-v2-20261029';
+import {MAX_HOLDINGS_AGE_DAYS} from './estimation-rules.mjs?v=bond-v2-20261029';
+import {indexForFund} from './indices.mjs?v=bond-v2-20261029';
 
 const indexProfile=profile=>!!profile&&!profile.bond&&(!!profile.index||!!indexForFund(profile.name??'')||/联接|指数/.test(profile.name??''));
 export function isIndexFund(data,code){
@@ -62,7 +63,7 @@ export async function syncHoldings(store,onProgress=()=>{},{fetchHoldings=holdin
     const previousBond=store.data.bondHoldingsSnapshots[code];
     selectHoldingSnapshot(previousBond,latest);
     const changed=holdingsChanged(previousBond,latest);
-    store.data.bondHoldingsSnapshots[code]={...latest,fetchedAt:new Date().toISOString()};
+    store.data.bondHoldingsSnapshots[code]={...mergeBondHolding(previousBond,latest),fetchedAt:new Date().toISOString()};
     result={code,name,bond:true,status:changed?'updated':'unchanged',previousDate:previousBond?.asOf??null,date:latest.asOf,count:latest.rows.length,bonds:latest.rows.map(({name:bn,code:bc,weight})=>({name:bn,code:bc,weight})),message:changed?'已更新披露债券持仓':'已是数据源最新披露债券持仓'};
    }
    else if(profile.allocation?.stock===0)result={code,name,status:'unsupported',previousDate:previous?.asOf??null,date:null,count:0,message:profile.allocation.date+' 资产配置股票占比为0，股票持仓同步不适用，需要基金投资或其他资产明细'};

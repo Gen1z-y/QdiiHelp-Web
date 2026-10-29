@@ -1,4 +1,4 @@
-import {validDate} from './model.mjs?v=bond-20261029';
+import {validDate} from './model.mjs?v=bond-v2-20261029';
 
 function summarize(samples,limit){
  const rows=samples.slice(0,limit),count=rows.length;

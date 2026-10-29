@@ -1,32 +1,33 @@
-import {forecastHistory} from './lib/forecast-history.mjs?v=bond-20261029';
-import {requireBond,migrateBondUniverse} from './bond-policy.mjs?v=bond-20261029';
-import {navObservation,navEstimate,navSnapshot,observationPlan,previousNavDate,reconcileObservation,planForFund} from './lib/nav-observation.mjs?v=bond-20261029';
-import {PERIOD_VERSION,pendingPublications,marketProgress,publishedPeriod} from './lib/nav-period.mjs?v=bond-20261029';
-import {session} from './lib/calendar.mjs?v=bond-20261029';
-import {sharedUpdate} from './lib/update-task.mjs?v=bond-20261029';
-import {RefreshTasks} from './lib/refresh-tasks.mjs?v=bond-20261029';
-import {RefreshInputs} from './lib/refresh-inputs.mjs?v=bond-20261029';
-import {FundStatsCache} from './lib/fund-stats-cache.mjs?v=bond-20261029';
-import {calendarCoverage} from './lib/calendar-maintenance.mjs?v=bond-20261029';
-import {sourceStatus} from './lib/source-status.mjs?v=bond-20261029';
-import {syncHoldings,stockHoldingsReport,syncComparison} from './lib/holdings-sync.mjs?v=bond-20261029';
-import {holdingsAnnouncements} from './lib/holdings-announcements.mjs?v=bond-20261029';
-import {bondObservation} from './lib/bond-date.mjs?v=bond-20261029';
-import {modelQuality,residualCandidate,captureEvidence,evidenceStats} from './lib/model-evidence.mjs?v=bond-20261029';
-import {canReuseView,blocksStockModel,publicView} from './lib/load-policy.mjs?v=bond-20261029';
-import {indexForFund,indexClose,estimateMarketIndex,clearIndexCache} from './lib/indices.mjs?v=bond-20261029';
-import {forecastIssue,invalidateForecasts} from './lib/forecast-policy.mjs?v=bond-20261029';
-import {holdingsChanged,selectHoldingSnapshot,forecastHoldingsChanged} from './lib/holdings-version.mjs?v=bond-20261029';
-import {holdingDateIssue,STOCK_ALLOCATION_ISSUE} from './lib/estimation-rules.mjs?v=bond-20261029';
-import {fetchHistory,buildComparison,savedHistory,configureHistoryStorage} from './lib/history.mjs?v=bond-20261029';
-import {navs,holdings,fundProfile,rowWithPrices,mapLimit,fxMovement,usableFx,clearProviderCache,navCrossCheck,bondHoldings,configureFxStorage} from './lib/provider.mjs?v=bond-20261029';
-import {estimateMarket,reconcile,previousWeekday,validDate,chinaDate} from './lib/model.mjs?v=bond-20261029';
-import {quoteDateMatches,marketId,marketStatus} from './lib/calendar.mjs?v=bond-20261029';
-import {pruneOldObservations} from './lib/retention.mjs?v=bond-20261029';
-import {replaySealedForecasts} from './lib/replay-audit.mjs?v=bond-20261029';
-import {bondReference,usableBondReference} from './lib/bond-reference.mjs?v=bond-20261029';
-import {bondFitForecast} from './lib/bond-forecast.mjs?v=bond-20261029';
-import {BrowserStore} from './browser-store.mjs?v=bond-20261029';
+import {mergeBondHolding} from './lib/bond-disclosure.mjs?v=bond-v2-20261029';
+import {forecastHistory} from './lib/forecast-history.mjs?v=bond-v2-20261029';
+import {requireBond,migrateBondUniverse} from './bond-policy.mjs?v=bond-v2-20261029';
+import {navObservation,navEstimate,navSnapshot,observationPlan,previousNavDate,reconcileObservation,planForFund} from './lib/nav-observation.mjs?v=bond-v2-20261029';
+import {PERIOD_VERSION,pendingPublications,marketProgress,publishedPeriod} from './lib/nav-period.mjs?v=bond-v2-20261029';
+import {session} from './lib/calendar.mjs?v=bond-v2-20261029';
+import {sharedUpdate} from './lib/update-task.mjs?v=bond-v2-20261029';
+import {RefreshTasks} from './lib/refresh-tasks.mjs?v=bond-v2-20261029';
+import {RefreshInputs} from './lib/refresh-inputs.mjs?v=bond-v2-20261029';
+import {FundStatsCache} from './lib/fund-stats-cache.mjs?v=bond-v2-20261029';
+import {calendarCoverage} from './lib/calendar-maintenance.mjs?v=bond-v2-20261029';
+import {sourceStatus} from './lib/source-status.mjs?v=bond-v2-20261029';
+import {syncHoldings,stockHoldingsReport,syncComparison} from './lib/holdings-sync.mjs?v=bond-v2-20261029';
+import {holdingsAnnouncements} from './lib/holdings-announcements.mjs?v=bond-v2-20261029';
+import {bondObservation} from './lib/bond-date.mjs?v=bond-v2-20261029';
+import {modelQuality,residualCandidate,captureEvidence,evidenceStats} from './lib/model-evidence.mjs?v=bond-v2-20261029';
+import {canReuseView,blocksStockModel,publicView} from './lib/load-policy.mjs?v=bond-v2-20261029';
+import {indexForFund,indexClose,estimateMarketIndex,clearIndexCache} from './lib/indices.mjs?v=bond-v2-20261029';
+import {forecastIssue,invalidateForecasts} from './lib/forecast-policy.mjs?v=bond-v2-20261029';
+import {holdingsChanged,selectHoldingSnapshot,forecastHoldingsChanged} from './lib/holdings-version.mjs?v=bond-v2-20261029';
+import {holdingDateIssue,STOCK_ALLOCATION_ISSUE} from './lib/estimation-rules.mjs?v=bond-v2-20261029';
+import {fetchHistory,buildComparison,savedHistory,configureHistoryStorage} from './lib/history.mjs?v=bond-v2-20261029';
+import {navs,holdings,fundProfile,rowWithPrices,mapLimit,fxMovement,usableFx,clearProviderCache,navCrossCheck,bondHoldings,configureFxStorage} from './lib/provider.mjs?v=bond-v2-20261029';
+import {estimateMarket,reconcile,previousWeekday,validDate,chinaDate} from './lib/model.mjs?v=bond-v2-20261029';
+import {quoteDateMatches,marketId,marketStatus} from './lib/calendar.mjs?v=bond-v2-20261029';
+import {pruneOldObservations} from './lib/retention.mjs?v=bond-v2-20261029';
+import {replaySealedForecasts} from './lib/replay-audit.mjs?v=bond-v2-20261029';
+import {bondReference,usableBondReference} from './lib/bond-reference.mjs?v=bond-v2-20261029';
+import {bondFitForecast} from './lib/bond-forecast.mjs?v=bond-v2-20261029';
+import {BrowserStore} from './browser-store.mjs?v=bond-v2-20261029';
 const store=await BrowserStore.open(globalThis.QDII_NAMESPACE);
 if(migrateBondUniverse(store.data))await store.save();
 const usePostgres=false,historyRoot='browser',origin='https://qdii.invalid',port=0;
@@ -133,7 +134,7 @@ async function update(code,targetDate,{force=false,onStage=()=>{},onOfficial=()=
         bondHoldingsInfo=store.data.bondHoldingsSnapshots?.[code]??null;
         if(!actual&&!session(targetDate,'CN').closed){
           try{
-            const fit=await bondFitForecast(targetDate,{history:savedHistory(code,historyRoot)??{rows:[]},base,reference:(date,options)=>inputs?inputs.bond(code,date,()=>bondReference(date,options)):bondReference(date,options)});
+            const fit=await bondFitForecast(targetDate,{history:savedHistory(code,historyRoot)??{rows:[]},holdings:bondHoldingsInfo,base,reference:(date,options)=>inputs?inputs.bond(code,date,()=>bondReference(date,options)):bondReference(date,options)});
             if(fit.candidate){candidate=fit.candidate;analysis={...candidate,diagnostic:true};modelError=null;}
             else modelError=fit.unavailable??'债基拟合预估暂不可用';
           }catch(e){modelError='债基拟合预估失败：'+e.message;}
@@ -286,7 +287,7 @@ async function listImpl(date,onProgress=()=>{},{force=false,preserveHistory=fals
    const checkedBefore=store.data.lastView[c+':'+target]?.checkedAt;
    const view=await update(c,target,{force,preserveHistory,syncHoldingsForecast:holdingsForecastCodes.has(c),onStage,inputs,plan,deadlineAt,checkParent:check,onOfficial:official=>onProgress({completed,total:codes.length,code:c,name:official.name,stage:'正式净值已获取，预估更新中',official}),asOf:plan&&!profileIsBond(c)?plan.asOf:target}),history=savedHistory(c,historyRoot)??{rows:[]};
    check();
-   if(view.bond&&!(view.record?.actual?.date===target&&!force))try{const ref=await inputs.bond(c,target,()=>bondReference(target,{history}));check();if(ref){store.data.bondRefs??={};store.data.bondRefs[c]=ref;}}catch{}
+   if(view.bond&&!(view.record?.actual?.date===target&&!force))try{const ref=await inputs.bond(c,target,()=>bondReference(target,{history,holdings:store.data.bondHoldingsSnapshots?.[c]}));check();if(ref){store.data.bondRefs??={};store.data.bondRefs[c]=ref;}}catch{}
    check();const result=decorate(view,history,target);
    result.refreshReused=!!checkedBefore&&view.checkedAt===checkedBefore;
    if(date==='auto'&&view.bond)result.domesticClosure=bondObservation(chinaDate(),view.latestNav?.date).closure;
@@ -392,7 +393,7 @@ export async function handleRequest(req,res){
           if(!/^\d{4}-\d{2}-\d{2}$/.test(latest.asOf)||!latest.rows?.length)throw new Error('未获取到有效披露债券持仓');
           selectHoldingSnapshot(previous,latest);
           const changed=holdingsChanged(previous,latest);
-          store.data.bondHoldingsSnapshots??={};store.data.bondHoldingsSnapshots[code]={...latest,fetchedAt:new Date().toISOString()};
+          store.data.bondHoldingsSnapshots??={};store.data.bondHoldingsSnapshots[code]={...mergeBondHolding(previous,latest),fetchedAt:new Date().toISOString()};
           sync={code,name,bond:true,status:changed?'updated':'unchanged',previousDate:previous?.asOf??null,date:latest.asOf,count:latest.rows.length,bonds:latest.rows.map(r=>({name:r.name,code:r.code,weight:r.weight})),message:changed?'已更新披露债券持仓':'已是数据源最新披露债券持仓'};
         }else{
           const remote=await holdings(code,{force:true,onStage:stage});

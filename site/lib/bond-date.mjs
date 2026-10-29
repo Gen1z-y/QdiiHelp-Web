@@ -1,5 +1,5 @@
-import {session,expectedCloseDate} from './calendar.mjs?v=bond-20261029';
-import {validDate} from './model.mjs?v=bond-20261029';
+import {session,expectedCloseDate} from './calendar.mjs?v=bond-v2-20261029';
+import {validDate} from './model.mjs?v=bond-v2-20261029';
 
 // A closure changes the observation shown on the homepage, not NAV income dates.
 // Any actually published NAV takes precedence over assumptions about publication.

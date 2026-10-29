@@ -1,9 +1,10 @@
-import {movement,chinaDate,previousWeekday} from './model.mjs?v=bond-20261029';
-import {navPercent,parseTencentNav,supplementNavReturn,annotateNavPeriods} from './nav-publication.mjs?v=bond-20261029';
-import {supplementFundNavReturn} from './fund-nav-calendar.mjs?v=bond-20261029';
-import {marketId,marketStatus,canUseBar,quoteDateMatches,expectedCloseDate,shiftDate} from './calendar.mjs?v=bond-20261029';
-import {readQuoteCache,writeQuoteCache,clearQuoteCache,hedged} from './quote-cache.mjs?v=bond-20261029';
-import {QuoteCircuit} from './quote-circuit.mjs?v=bond-20261029';
+import {bondDisclosures} from './bond-disclosure.mjs?v=bond-v2-20261029';
+import {movement,chinaDate,previousWeekday} from './model.mjs?v=bond-v2-20261029';
+import {navPercent,parseTencentNav,supplementNavReturn,annotateNavPeriods} from './nav-publication.mjs?v=bond-v2-20261029';
+import {supplementFundNavReturn} from './fund-nav-calendar.mjs?v=bond-v2-20261029';
+import {marketId,marketStatus,canUseBar,quoteDateMatches,expectedCloseDate,shiftDate} from './calendar.mjs?v=bond-v2-20261029';
+import {readQuoteCache,writeQuoteCache,clearQuoteCache,hedged} from './quote-cache.mjs?v=bond-v2-20261029';
+import {QuoteCircuit} from './quote-circuit.mjs?v=bond-v2-20261029';
 const headers={Referer:'https://fundf10.eastmoney.com/','User-Agent':'Mozilla/5.0 QdiiHelp/1.0'};
 const cache=new Map();
 const pending=new Map();
@@ -202,7 +203,9 @@ export async function bondHoldings(code,{force=false}={}) {
   return {code:cells[1]??'',name:cells[2]??'',weight:parseFloat(w)};
  }).filter(r=>r.code&&Number.isFinite(r.weight));
  if(!rows.length)throw new Error('暂无披露债券持仓');
- return {asOf,rows,source:'天天基金披露债券投资明细'};
+ let disclosures=[],disclosureError=null;
+ try{disclosures=await bondDisclosures(code,asOf);}catch(e){disclosureError=e.message;}
+ return {asOf,rows,source:'天天基金披露债券投资明细',disclosures,...(disclosureError?{disclosureError}:{})};
 }
 async function stockBars(secid,date,baseDate,now) {
  const validate=quote=>{const market=markets[secid.split('.')[0]],id=marketId(secid),series=completedBars(quote.rows,market,now),move=movement(series,baseDate,date),daily=movement(series,previousWeekday(new Date(date+'T12:00:00Z')),date);if(!move||!daily||!canUseBar(move.target,date,id,now)||!quoteDateMatches(move.base.date,baseDate,id)||!quoteDateMatches(daily.base.date,previousWeekday(new Date(date+'T12:00:00Z')),id))throw new Error('缺少应有交易日行情');

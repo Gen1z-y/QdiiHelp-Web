@@ -1,4 +1,4 @@
-import {validDate} from './model.mjs?v=bond-20261029';
+import {validDate} from './model.mjs?v=bond-v2-20261029';
 
 const cache=new Map(),pending=new Map();
 const indexUrl=code=>`https://fundf10.eastmoney.com/jjgg_${code}_3.html`;
